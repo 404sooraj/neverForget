@@ -16,18 +16,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    checkAuth();
+    checkAuth().finally(() => {
+      setIsLoading(false);
+    });
   }, []);
 
   const checkAuth = async () => {
+    console.log('Checking authentication...');
     try {
       const token = await AsyncStorage.getItem('authToken');
+      console.log('Token from storage:', token);
       setIsAuthenticated(!!token);
     } catch (error) {
       console.error('Error checking auth status:', error);
       setIsAuthenticated(false);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -52,6 +54,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw error;
     }
   };
+
+  useEffect(() => {
+    console.log('isAuthenticated:', isAuthenticated, 'isLoading:', isLoading);
+  }, [isAuthenticated, isLoading]);
 
   return (
     <AuthContext.Provider value={{ isAuthenticated, isLoading, login, logout }}>

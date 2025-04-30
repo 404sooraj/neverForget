@@ -1,1 +1,2 @@
-export const BackendUrl = "http://10.5.14.207:5000";
+
+export const BackendUrl = process.env.BACKEND_API
