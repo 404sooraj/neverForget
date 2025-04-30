@@ -3,14 +3,13 @@ import multer from "multer";
 import { exec } from "child_process";
 import fs from "fs";
 import cors from "cors";
-import path from "path";
 import { connectDB } from "./config/database";
 import dotenv from "dotenv";
 
 dotenv.config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 5000;
 
 // Allow mobile devices to send requests
 app.use(cors());
