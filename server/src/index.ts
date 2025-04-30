@@ -4,6 +4,11 @@ import { exec } from "child_process";
 import fs from "fs";
 import cors from "cors";
 import path from "path";
+import express from 'express';
+import { connectDB } from './config/database';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const app = express();
 const PORT = 3000;
@@ -11,6 +16,9 @@ const PORT = 3000;
 // Allow mobile devices to send requests
 app.use(cors());
 app.use(express.json());
+
+// Connect to MongoDB
+connectDB();
 
 // Setup Multer to store in /uploads
 const upload = multer({ dest: "uploads/" });
@@ -56,6 +64,10 @@ app.post(
     );
   }
 );
+
+app.get('/', (_req, res) => {
+  res.send('Hello, TypeScript + Express!');
+});
 
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
