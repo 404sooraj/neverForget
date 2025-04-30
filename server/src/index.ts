@@ -4,9 +4,8 @@ import { exec } from "child_process";
 import fs from "fs";
 import cors from "cors";
 import path from "path";
-import express from 'express';
-import { connectDB } from './config/database';
-import dotenv from 'dotenv';
+import { connectDB } from "./config/database";
+import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -65,8 +64,8 @@ app.post(
   }
 );
 
-app.get('/', (_req, res) => {
-  res.send('Hello, TypeScript + Express!');
+app.get("/", (_req, res) => {
+  res.send("Hello, TypeScript + Express!");
 });
 
 app.listen(PORT, () => {
