@@ -1,74 +1,177 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+// App.js or your component
+import React, { useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import { Audio } from "expo-av";
+import { MaterialIcons } from "@expo/vector-icons";
+import { BackendUrl } from "@/constants/contants";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+export default function Recorder() {
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [transcript, setTranscript] = useState<string>("");
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
 
-export default function HomeScreen() {
+  async function startRecording() {
+    try {
+      setError("");
+      const permission = await Audio.requestPermissionsAsync();
+      if (permission.status !== "granted") {
+        setError("Permission to access microphone is required!");
+        return;
+      }
+
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+
+      setRecording(recording);
+    } catch (err) {
+      setError("Failed to start recording. Please try again.");
+      console.error("Failed to start recording:", err);
+    }
+  }
+
+  async function stopRecording() {
+    if (!recording) return;
+
+    try {
+      setIsLoading(true);
+      setRecording(null);
+      await recording.stopAndUnloadAsync();
+
+      const uri = recording.getURI();
+      if (!uri) {
+        throw new Error("No recording URI found");
+      }
+
+      const formData = new FormData();
+      const audioFile = {
+        uri,
+        name: "audio.m4a",
+        type: "audio/x-m4a",
+      } as any;
+
+      formData.append("audio", audioFile);
+
+
+      const response = await fetch(`${BackendUrl}/transcribe`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload audio");
+      }
+
+      const data = await response.json();
+      setTranscript(data.transcript);
+    } catch (err) {
+      setError("Failed to process recording. Please try again.");
+      console.error("Failed to process recording:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
+    <View style={styles.container}>
+      <TouchableOpacity
+        style={[styles.recordButton, recording && styles.recordingButton]}
+        onPress={recording ? stopRecording : startRecording}
+        disabled={isLoading}
+      >
+        <MaterialIcons
+          name={recording ? "stop" : "mic"}
+          size={32}
+          color="white"
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      </TouchableOpacity>
+
+      {isLoading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#007AFF" />
+          <Text style={styles.loadingText}>Processing your recording...</Text>
+        </View>
+      )}
+
+      {error ? (
+        <Text style={styles.errorText}>{error}</Text>
+      ) : transcript ? (
+        <View style={styles.transcriptContainer}>
+          <Text style={styles.transcriptLabel}>Transcript:</Text>
+          <Text style={styles.transcriptText}>{transcript}</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 20,
+    backgroundColor: "#f5f5f5",
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  recordButton: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#007AFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 30,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  recordingButton: {
+    backgroundColor: "#FF3B30",
+  },
+  loadingContainer: {
+    alignItems: "center",
+    marginTop: 20,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 16,
+    color: "#666",
+  },
+  errorText: {
+    color: "#FF3B30",
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 20,
+  },
+  transcriptContainer: {
+    width: "100%",
+    marginTop: 30,
+    padding: 15,
+    backgroundColor: "white",
+    borderRadius: 10,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+  },
+  transcriptLabel: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 10,
+    color: "#333",
+  },
+  transcriptText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#666",
   },
 });

@@ -15,12 +15,12 @@ app.use(express.json());
 // Connect to DB
 connectDB();
 
-// Mount routes
-app.use("/", transcriptionRoutes);
-
 app.get("/", (_req, res) => {
   res.send("Hello, TypeScript + Express!");
 });
+
+// Mount routes
+app.use("/", transcriptionRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);
