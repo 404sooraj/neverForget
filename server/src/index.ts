@@ -3,6 +3,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import { connectDB } from "./config/database";
 import transcriptionRoutes from "./routes/transcribe.routes";
+import { startScheduler } from "./config/scheduler";
 
 dotenv.config();
 
@@ -14,6 +15,9 @@ app.use(express.json());
 
 // Connect to DB
 connectDB();
+
+// Start the scheduler
+startScheduler();
 
 app.get("/", (_req, res) => {
   res.send("Hello, TypeScript + Express!");
