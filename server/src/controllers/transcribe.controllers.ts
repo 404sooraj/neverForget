@@ -4,6 +4,8 @@ import fs from "fs";
 import { Transcript } from "../modals/transcript.modals";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { IUser } from "../modals/user.modals";
+import multer from "multer";
+import path from "path";
 
 // Extend Express Request type to include user
 declare global {
@@ -18,52 +20,72 @@ declare global {
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
-export const transcribeAudio = async (req: Request, res: Response): Promise<void> => {
-  console.log("Received transcription request...");
-
-  if (!req.file) {
-    console.log("No file received");
-    res.status(400).json({ error: "No file uploaded" });
-    return;
+// Configure multer for file upload
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/');
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + path.extname(file.originalname));
   }
+});
 
-  const filePath = req.file.path;
-  const outputTxt = `${filePath}.txt`;
+export const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+  }
+});
 
-  exec(`whisper ${filePath} --model base  --output_dir uploads`, async (err) => {
-    if (err) {
-      console.error("Whisper failed:", err);
-      res.status(500).json({ error: "Transcription failed" });
+export const transcribeAudio = async (req: Request, res: Response): Promise<void> => {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
       return;
     }
 
-    fs.readFile(outputTxt, "utf8", async (err, data) => {
+    const filePath = req.file.path;
+    const outputTxt = `${filePath}.txt`;
+
+    exec(`whisper ${filePath} --model base --output_dir uploads`, async (err) => {
       if (err) {
-        console.error("Reading transcript failed:", err);
-        res.status(500).json({ error: "Failed to read transcript" });
+        console.error("Whisper failed:", err);
+        res.status(500).json({ error: "Transcription failed" });
         return;
       }
 
-      try {
-        // Store transcript in MongoDB
-        const transcript = new Transcript({
-          userId: req.user?._id,
-          audioFile: req.file!.originalname,
-          transcript: data,
-        });
+      fs.readFile(outputTxt, "utf8", async (err, data) => {
+        if (err) {
+          console.error("Reading transcript failed:", err);
+          res.status(500).json({ error: "Failed to read transcript" });
+          return;
+        }
 
-        await transcript.save();
+        try {
+          // Store transcript in MongoDB
+          const transcript = new Transcript({
+            userId: req.user?._id,
+            audioFile: req.file!.originalname,
+            transcript: data,
+          });
 
-        fs.unlinkSync(filePath);
-        fs.unlinkSync(outputTxt);
-        console.log("Transcription successful and stored in database");
-        res.json({ transcript: data });
-      } catch (error) {
-        console.error("Database storage failed:", error);
-        res.status(500).json({ error: "Failed to store transcript" });
-      }
+          await transcript.save();
+
+          // Clean up files
+          fs.unlinkSync(filePath);
+          fs.unlinkSync(outputTxt);
+
+          res.json({ transcript: data });
+        } catch (error) {
+          console.error("Database storage failed:", error);
+          res.status(500).json({ error: "Failed to store transcript" });
+        }
+      });
     });
-  });
+  } catch (error) {
+    console.error("Transcription process failed:", error);
+    res.status(500).json({ error: "Transcription process failed" });
+  }
 };
 
 // Function to generate summary using Gemini

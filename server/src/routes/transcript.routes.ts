@@ -6,19 +6,20 @@ import {
   processPendingTranscripts,
   storeTranscribedData,
   getTranscripts,
-  deleteTranscript
+  deleteTranscript,
+  upload
 } from '../controllers/transcribe.controllers';
 
 const router = express.Router();
 
 // Protected routes
-// router.use(authMiddleware);
+router.use(authMiddleware);
 
 // Get all transcripts for the user
 router.get('/', getTranscripts);
 
 // Transcribe audio file
-router.post('/transcribe', transcribeAudio);
+router.post('/transcribe', upload.single('audio'), transcribeAudio);
 
 // Store already transcribed data
 router.post('/store', storeTranscribedData);

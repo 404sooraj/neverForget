@@ -64,7 +64,7 @@ export default function RecordPage() {
         name: 'recording.m4a',
       } as any);
 
-      const response = await fetch('http://192.168.23.94:5000/transcribe', {
+      const response = await fetch(`${process.env.BACKEND_ROUTE}/transcribe`, {
         method: 'POST',
         body: formData,
         headers: {

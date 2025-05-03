@@ -67,9 +67,6 @@ export default function RecordPage() {
       const response = await fetch('http://192.168.23.94:5000/transcribe', {
         method: 'POST',
         body: formData,
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
       });
 
       if (!response.ok) {
