@@ -3,6 +3,7 @@ import { exec } from "child_process";
 import fs from "fs";
 import { Transcript } from "../modals/transcript.modals";
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { IUser } from "../modals/user.modals";
 
 // Extend Express Request type to include user
 declare global {
