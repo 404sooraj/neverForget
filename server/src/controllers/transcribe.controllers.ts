@@ -132,3 +132,36 @@ export const storeTranscribedData = async (req: Request, res: Response): Promise
     res.status(500).json({ error: "Failed to store transcribed data" });
   }
 };
+
+// Get all transcripts for the user
+export const getTranscripts = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const transcripts = await Transcript.find({ userId: req.user?._id })
+      .sort({ timestamp: -1 });
+    res.json(transcripts);
+  } catch (error) {
+    console.error('Failed to fetch transcripts:', error);
+    res.status(500).json({ error: 'Failed to fetch transcripts' });
+  }
+};
+
+// Delete a transcript
+export const deleteTranscript = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const transcript = await Transcript.findOneAndDelete({ 
+      _id: id, 
+      userId: req.user?._id 
+    });
+
+    if (!transcript) {
+      res.status(404).json({ error: 'Transcript not found' });
+      return;
+    }
+
+    res.json({ message: 'Transcript deleted successfully' });
+  } catch (error) {
+    console.error('Failed to delete transcript:', error);
+    res.status(500).json({ error: 'Failed to delete transcript' });
+  }
+};

@@ -1,13 +1,14 @@
 {
   "expo": {
-    "name": "client",
-    "slug": "client",
+    "name": "Never Forget",
+    "slug": "never-forget",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "client",
+    "scheme": "never-forget",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "entryPoint": "./App.tsx",
     "ios": {
       "supportsTablet": true
     },

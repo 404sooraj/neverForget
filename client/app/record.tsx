@@ -77,7 +77,20 @@ export default function RecordPage() {
       }
 
       const data = await response.json();
-      Alert.alert('Success', 'Audio sent successfully');
+      Alert.alert(
+        'Success',
+        'Audio transcribed successfully!',
+        [
+          {
+            text: 'View Transcript',
+            onPress: () => router.push('/summary'),
+          },
+          {
+            text: 'OK',
+            style: 'cancel',
+          },
+        ]
+      );
     } catch (error) {
       console.error('Error sending audio:', error);
       Alert.alert('Error', 'Failed to send audio to server');
