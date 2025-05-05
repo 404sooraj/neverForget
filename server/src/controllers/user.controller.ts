@@ -3,6 +3,23 @@ import User from "../modals/user.modals";
 import { Transcript } from "../modals/transcript.modals";
 import mongoose from "mongoose";
 
+// Get all users
+export const getAllUsers = async (req: Request, res: Response) => {
+  try {
+    const users = await User.find()
+      .select("-__v") // Exclude version field
+      .sort({ createdAt: -1 }); // Sort by creation date, newest first
+
+    return res.status(200).json({
+      users,
+      count: users.length,
+    });
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
 // Create a new user
 export const createUser = async (req: Request, res: Response) => {
   try {

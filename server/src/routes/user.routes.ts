@@ -3,9 +3,13 @@ import {
   createUser,
   getUserByUsername,
   getUserTranscripts,
+  getAllUsers,
 } from "../controllers/user.controller";
 
 const router = express.Router();
+
+// Get all users
+router.get("/users", getAllUsers);
 
 // Create a new user
 router.post("/users", createUser);
