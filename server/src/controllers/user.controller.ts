@@ -1,0 +1,109 @@
+import { Request, Response } from "express";
+import User from "../modals/user.modals";
+import { Transcript } from "../modals/transcript.modals";
+import mongoose from "mongoose";
+
+// Create a new user
+export const createUser = async (req: Request, res: Response) => {
+  try {
+    const { username, email } = req.body;
+
+    if (!username) {
+      return res.status(400).json({ message: "Username is required" });
+    }
+
+    // Check if username already exists
+    const existingUser = await User.findOne({ username });
+    if (existingUser) {
+      return res.status(400).json({ message: "Username already exists" });
+    }
+
+    const user = new User({
+      username,
+      email: email || "",
+    });
+
+    await user.save();
+    return res.status(201).json({ user });
+  } catch (error) {
+    console.error("Error creating user:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get user by username
+export const getUserByUsername = async (req: Request, res: Response) => {
+  try {
+    const { username } = req.params;
+
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({ user });
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Get user transcripts with optional date filtering
+export const getUserTranscripts = async (req: Request, res: Response) => {
+  try {
+    const { username } = req.params;
+    const { startDate, endDate } = req.query;
+
+    // Find user
+    const user = await User.findOne({ username });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Build query for transcripts
+    let query: any = { userId: user._id };
+
+    // Add date filtering if provided
+    // Apply date filtering if provided
+    // Expected format: YYYY-MM-DD or ISO string (e.g., 2023-01-01 or 2023-01-01T00:00:00.000Z)
+    if (startDate || endDate) {
+      query.timestamp = {};
+
+      if (startDate) {
+        query.timestamp.$gte = new Date(startDate as string);
+      }
+
+      if (endDate) {
+        query.timestamp.$lte = new Date(endDate as string);
+      }
+    }
+
+    // Fetch transcripts
+    const transcripts = await Transcript.find(query)
+      .sort({ timestamp: -1 }) // Latest first
+      .lean();
+
+    return res.status(200).json({ transcripts });
+  } catch (error) {
+    console.error("Error fetching user transcripts:", error);
+    return res.status(500).json({ message: "Server error" });
+  }
+};
+
+// Add a transcript to a user
+export const addTranscriptToUser = async (
+  userId: string,
+  transcriptId: mongoose.Types.ObjectId
+) => {
+  try {
+    await User.findByIdAndUpdate(
+      userId,
+      { $push: { transcripts: transcriptId } },
+      { new: true }
+    );
+    return true;
+  } catch (error) {
+    console.error("Error adding transcript to user:", error);
+    return false;
+  }
+};

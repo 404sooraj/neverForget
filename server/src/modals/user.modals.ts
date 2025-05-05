@@ -4,7 +4,7 @@ export interface IUser extends Document {
   _id: string;
   username: string;
   email: string;
-  password: string;
+  transcripts: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -14,19 +14,21 @@ const UserSchema: Schema = new Schema(
     username: {
       type: String,
       required: true,
+      unique: true,
       trim: true,
     },
     email: {
       type: String,
-      required: true,
-      unique: true,
+      required: false,
       trim: true,
       lowercase: true,
     },
-    password: {
-      type: String,
-      required: true,
-    },
+    transcripts: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Transcript",
+      },
+    ],
   },
   {
     timestamps: true,

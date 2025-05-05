@@ -1,13 +1,30 @@
 import express from "express";
 import multer from "multer";
-import { transcribeAudio, storeTranscribedData } from "../controllers/transcribe.controllers";
+import {
+  transcribeAudio,
+  storeTranscribedData,
+  getTranscriptsByUsername,
+  deleteTranscript,
+} from "../controllers/transcribe.controllers";
 // import { authMiddleware } from "../middleware/auth.middleware";
 
 const router = express.Router();
 const upload = multer({ dest: "uploads/" });
 
 // Apply auth middleware to specific routes
-router.post("/transcribe",  upload.single("audio"), transcribeAudio);
-router.post("/store-transcript",  storeTranscribedData);
+
+// To send raw audio we use the below route
+// audio file to be passed in the body aswell as the username
+router.post("/transcribe", upload.single("audio"), transcribeAudio);
+
+// Incase real time transcription is working, we use the below route
+// transcript, audioFileName, username to be passed in the body
+router.post("/store-transcript", storeTranscribedData);
+
+// Get transcripts by username
+router.get("/transcripts/:username", getTranscriptsByUsername);
+
+// Delete a transcript
+router.delete("/transcripts/:id", deleteTranscript);
 
 export default router;
