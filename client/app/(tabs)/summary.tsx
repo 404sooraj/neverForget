@@ -1,13 +1,27 @@
-import { View, Text, StyleSheet, FlatList, RefreshControl } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  RefreshControl,
+  TouchableOpacity,
+  Modal,
+  ScrollView,
+  Pressable,
+} from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useState, useEffect, useCallback } from "react";
+import { Ionicons } from "@expo/vector-icons";
 
 type Transcript = {
   _id: string;
   transcript: string;
   timestamp: string;
   summary?: string;
+  oneLiner?: string;
   audioFile: string;
+  isSummarized: boolean;
+  summaryError?: string;
 };
 
 export default function SummaryScreen() {
@@ -15,18 +29,21 @@ export default function SummaryScreen() {
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedTranscript, setSelectedTranscript] =
+    useState<Transcript | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const fetchTranscripts = useCallback(async () => {
     try {
       if (!username) return;
 
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/users/${username}/transcripts`
+        `${process.env.EXPO_PUBLIC_API_URL}/transcripts/${username}`
       );
       const data = await response.json();
 
       if (response.ok) {
-        setTranscripts(data.transcripts || []);
+        setTranscripts(data || []);
       }
     } catch (error) {
       console.error("Error fetching transcripts:", error);
@@ -56,27 +73,111 @@ export default function SummaryScreen() {
     });
   };
 
+  const openTranscriptDetail = (transcript: Transcript) => {
+    setSelectedTranscript(transcript);
+    setModalVisible(true);
+  };
+
+  const closeModal = () => {
+    setModalVisible(false);
+    setSelectedTranscript(null);
+  };
+
   const renderTranscriptItem = ({ item }: { item: Transcript }) => (
-    <View style={styles.transcriptCard}>
+    <TouchableOpacity
+      style={styles.transcriptCard}
+      onPress={() => openTranscriptDetail(item)}
+      activeOpacity={0.7}
+    >
       <View style={styles.transcriptHeader}>
-        <Text style={styles.timestamp}>{formatDate(item.timestamp)}</Text>
-        <Text style={styles.audioFile}>{item.audioFile}</Text>
+        <Text style={styles.summaryLabel}>SUMMARY</Text>
+        <Text style={styles.dateText}>{formatDate(item.timestamp)}</Text>
       </View>
 
-      <Text style={styles.transcriptText} numberOfLines={3}>
-        {item.transcript}
-      </Text>
-
-      {item.summary && (
-        <View style={styles.summaryContainer}>
-          <Text style={styles.summaryLabel}>Summary:</Text>
-          <Text style={styles.summaryText} numberOfLines={2}>
-            {item.summary}
-          </Text>
-        </View>
+      {item.oneLiner ? (
+        <Text style={styles.oneLiner} numberOfLines={2}>
+          {item.oneLiner}
+        </Text>
+      ) : item.summary ? (
+        <Text style={styles.oneLiner} numberOfLines={2}>
+          {item.summary.substring(0, 80)}...
+        </Text>
+      ) : (
+        <Text style={styles.placeholderText}>
+          {item.isSummarized && item.summaryError
+            ? "Error generating summary"
+            : item.isSummarized
+            ? "No summary available"
+            : "Summary in progress..."}
+        </Text>
       )}
-    </View>
+
+      <View style={styles.cardFooter}>
+        <Text style={styles.viewMoreText}>Tap to view details</Text>
+        <Ionicons name="chevron-forward" size={16} color="#007AFF" />
+      </View>
+    </TouchableOpacity>
   );
+
+  const renderDetailModal = () => {
+    if (!selectedTranscript) return null;
+
+    return (
+      <Modal
+        animationType="slide"
+        transparent={false}
+        visible={modalVisible}
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={closeModal} style={styles.backButton}>
+              <Ionicons name="chevron-back" size={24} color="#000" />
+            </TouchableOpacity>
+            <View style={styles.modalHeaderCenter}>
+              <Text style={styles.summaryLabel}>SUMMARY</Text>
+              <Text style={styles.dateText}>
+                {formatDate(selectedTranscript.timestamp)}
+              </Text>
+            </View>
+            <View style={styles.headerActions}>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="bookmark-outline" size={24} color="#000" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="share-outline" size={24} color="#000" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="trash-outline" size={24} color="#000" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <Text style={styles.summaryTitle}>
+              {selectedTranscript.oneLiner || "Untitled Summary"}
+            </Text>
+
+            <View style={styles.bulletPoints}>
+              <Text style={styles.bulletSectionTitle}>Bullets</Text>
+              {selectedTranscript.summary?.split("\n").map((point, index) => (
+                <View key={index} style={styles.bulletPoint}>
+                  <Text style={styles.bulletText}>• {point.trim()}</Text>
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.detailedSection}>
+              <Text style={styles.sectionTitle}>Detailed Summary</Text>
+              <Text style={styles.detailedText}>
+                {selectedTranscript.summary || "No detailed summary available"}
+              </Text>
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
+    );
+  };
 
   if (loading && !refreshing) {
     return (
@@ -88,7 +189,7 @@ export default function SummaryScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Your Transcripts</Text>
+      <Text style={styles.title}>Your Summaries</Text>
       {transcripts.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>No transcripts yet</Text>
@@ -107,6 +208,7 @@ export default function SummaryScreen() {
           }
         />
       )}
+      {renderDetailModal()}
     </View>
   );
 }
@@ -145,37 +247,87 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
-  },
-  timestamp: {
-    fontSize: 14,
-    color: "#666666",
-  },
-  audioFile: {
-    fontSize: 12,
-    color: "#007AFF",
-  },
-  transcriptText: {
-    fontSize: 16,
-    color: "#1a1a1a",
-    lineHeight: 22,
-  },
-  summaryContainer: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
+    marginBottom: 12,
   },
   summaryLabel: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 12,
     color: "#666666",
-    marginBottom: 4,
+    letterSpacing: 1,
+    textTransform: "uppercase",
   },
-  summaryText: {
-    fontSize: 14,
+  dateText: {
+    fontSize: 12,
+    color: "#666666",
+  },
+  oneLiner: {
+    fontSize: 16,
+    fontWeight: "500",
     color: "#1a1a1a",
-    lineHeight: 20,
+    lineHeight: 22,
+    marginBottom: 8,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: "#999",
+    fontStyle: "italic",
+    marginBottom: 8,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  viewMoreText: {
+    fontSize: 14,
+    color: "#007AFF",
+    marginRight: 4,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eeeeee",
+  },
+  backButton: {
+    padding: 8,
+  },
+  modalHeaderCenter: {
+    alignItems: "center",
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  actionButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
+  modalContent: {
+    flex: 1,
+    padding: 16,
+  },
+  detailedSection: {
+    marginTop: 24,
+    marginBottom: 32,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#000000",
+    marginBottom: 12,
+  },
+  detailedText: {
+    fontSize: 16,
+    color: "#333333",
+    lineHeight: 24,
   },
   loadingText: {
     fontSize: 16,
@@ -198,5 +350,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666666",
     textAlign: "center",
+  },
+  summaryTitle: {
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#000000",
+    marginBottom: 20,
+    lineHeight: 32,
+  },
+  bulletPoints: {
+    marginTop: 16,
+  },
+  bulletSectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#000000",
+    marginBottom: 12,
+  },
+  bulletPoint: {
+    marginBottom: 8,
+  },
+  bulletText: {
+    fontSize: 16,
+    color: "#333333",
+    lineHeight: 24,
   },
 });
