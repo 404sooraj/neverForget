@@ -22,10 +22,22 @@ const transcriptSchema = new mongoose.Schema({
     type: String,
     default: "",
   },
+  oneLiner: {
+    type: String,
+    default: "",
+  },
   isSummarized: {
     type: Boolean,
     default: false,
   },
+  summaryError: {
+    type: String,
+    default: null,
+  },
+  summaryTimestamp: {
+    type: Date,
+    default: null,
+  },
 });
 
-export const Transcript = mongoose.model("Transcript", transcriptSchema); 
+export const Transcript = mongoose.model("Transcript", transcriptSchema);
