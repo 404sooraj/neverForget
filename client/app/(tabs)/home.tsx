@@ -4,15 +4,18 @@ import {
   Platform,
   Text,
   TouchableOpacity,
-  Alert, // Import Alert
+  Alert,
+  Animated, // Import Animated
 } from "react-native";
 import { Audio } from "expo-av";
-import { useState, useRef, useEffect } from "react"; // Import useRef and useEffect
+import { useState, useRef, useEffect } from "react";
+import { Ionicons } from "@expo/vector-icons"; // Import Ionicons
+import * as Haptics from "expo-haptics"; // Import Haptics
 import { RECORDING_OPTIONS_PRESET_HIGH_QUALITY } from "@/modules/audio";
 import { useAuth } from "../auth/AuthContext";
 import { router } from "expo-router";
 
-const RECORDING_INTERVAL_MS = 10 * 1000; // 1 minute
+const RECORDING_INTERVAL_MS = 60 * 1000; // 1 minute
 
 export default function HomeScreen() {
   // Use useRef for recording object and interval ID to avoid stale closures
@@ -21,6 +24,7 @@ export default function HomeScreen() {
   const intervalRef = useRef<number | null>(null);
   const [isRecording, setIsRecording] = useState(false); // UI state
   const { username, signOut } = useAuth();
+  const scaleAnim = useRef(new Animated.Value(1)).current; // Animation value for button scale
 
   // Cleanup function for unmounting
   useEffect(() => {
@@ -124,6 +128,13 @@ export default function HomeScreen() {
       await newRecording.startAsync();
       recordingRef.current = newRecording;
       setIsRecording(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic feedback
+      // Start scale animation
+      Animated.spring(scaleAnim, {
+        toValue: 1.1, // Scale up slightly
+        friction: 3,
+        useNativeDriver: true,
+      }).start();
       console.log("Initial recording started.");
 
       // Clear any existing interval before starting a new one
@@ -166,6 +177,13 @@ export default function HomeScreen() {
     const lastRecording = recordingRef.current;
     recordingRef.current = null; // Clear the ref immediately
     setIsRecording(false); // Update UI state
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic feedback
+    // Reset scale animation
+    Animated.spring(scaleAnim, {
+      toValue: 1, // Scale back to normal
+      friction: 3,
+      useNativeDriver: true,
+    }).start();
 
     if (lastRecording) {
       // Send the final segment
@@ -176,9 +194,18 @@ export default function HomeScreen() {
   }
 
   const handleSignOut = async () => {
-    stopRecording(); // Ensure recording is stopped before signing out
+    await stopRecording(); // Stop recording first
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); // Haptic feedback
     await signOut();
     router.replace("/auth");
+  };
+
+  const handleRecordPress = () => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording();
+    }
   };
 
   return (
@@ -186,18 +213,29 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <Text style={styles.welcomeText}>Welcome, {username}!</Text>
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+          {/* Icon added */}
+          <Ionicons name="log-out-outline" size={24} color="#495057" />
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity
-        style={[styles.recordButton, isRecording && styles.recordingButton]}
-        onPress={isRecording ? stopRecording : startRecording}
-      >
-        <Text style={styles.recordButtonText}>
-          {isRecording ? "Stop Recording" : "Start Recording"}
-        </Text>
-      </TouchableOpacity>
+      <View style={styles.recordButtonContainer}>
+        {/* Wrap TouchableOpacity in Animated.View */}
+        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+          <TouchableOpacity
+            style={[styles.recordButton, isRecording && styles.recordingButton]}
+            onPress={handleRecordPress} // Use combined handler
+            activeOpacity={0.8} // Slightly more feedback
+          >
+            {/* Conditional Icon */}
+            <Ionicons
+              name={isRecording ? "stop" : "mic"}
+              size={60} // Larger icon
+              color="#fff"
+            />
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
     </View>
   );
 }
@@ -205,53 +243,63 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#fff",
-    padding: 20,
+    backgroundColor: "#F0F2F5", // Slightly different light background
+    paddingHorizontal: 25,
+    paddingVertical: 20,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 40,
-    paddingTop: Platform.OS === "android" ? 25 : 0, // Adjust padding for Android status bar
+    marginBottom: 60, // Even more spacing
+    paddingTop: Platform.OS === 'android' ? 40 : 20,
   },
   welcomeText: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#1a1a1a",
+    fontSize: 28, // Slightly larger
+    fontWeight: "bold", // Bolder
+    color: "#1C1E21", // Darker color
   },
   signOutButton: {
-    padding: 8,
+    flexDirection: 'row', // Align icon and text
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    backgroundColor: '#E4E6EB', // Slightly different grey
+    borderRadius: 20, // More rounded
   },
   signOutText: {
-    color: "#ff3b30",
+    color: "#4B4F56", // Adjusted text color
     fontSize: 16,
+    fontWeight: "500",
+    marginLeft: 8, // Space between icon and text
+  },
+  recordButtonContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   recordButton: {
-    backgroundColor: "#007AFF",
-    paddingVertical: 25, // Make button larger
-    paddingHorizontal: 20,
-    borderRadius: 15, // Slightly more rounded
+    width: 160, // Slightly larger button
+    height: 160,
+    borderRadius: 80, // Keep it circular
+    backgroundColor: "#1877F2", // Facebook blue
     alignItems: "center",
-    justifyContent: "center", // Center text vertically
-    marginTop: "auto",
-    marginBottom: "auto",
-    minHeight: 80, // Ensure minimum height
-    shadowColor: "#000", // Add shadow for depth
+    justifyContent: 'center',
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 5,
     },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.34,
+    shadowRadius: 6.27,
+    elevation: 10,
+    borderWidth: 3, // Add a subtle border
+    borderColor: "rgba(255, 255, 255, 0.5)", // White border
   },
   recordingButton: {
-    backgroundColor: "#ff3b30", // Red when recording
+    backgroundColor: "#E74C3C", // Softer red
+    shadowColor: "#C0392B", // Darker red shadow
+    borderColor: "rgba(255, 255, 255, 0.7)",
   },
-  recordButtonText: {
-    color: "#fff",
-    fontSize: 20, // Larger text
-    fontWeight: "bold", // Bolder text
-  },
+  // Removed recordButtonText as it's replaced by icons
 });
