@@ -10,13 +10,13 @@ export const getAllUsers = async (req: Request, res: Response) => {
       .select("-__v") // Exclude version field
       .sort({ createdAt: -1 }); // Sort by creation date, newest first
 
-    return res.status(200).json({
+    res.status(200).json({
       users,
       count: users.length,
     });
   } catch (error) {
     console.error("Error fetching users:", error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -26,13 +26,14 @@ export const createUser = async (req: Request, res: Response) => {
     const { username, email } = req.body;
 
     if (!username) {
-      return res.status(400).json({ message: "Username is required" });
+      res.status(400).json({ message: "Username is required" });
     }
 
     // Check if username already exists
     const existingUser = await User.findOne({ username });
     if (existingUser) {
-      return res.status(400).json({ message: "Username already exists" });
+      res.status(400).json({ message: "Username already exists" });
+      return;
     }
 
     const user = new User({
@@ -41,10 +42,12 @@ export const createUser = async (req: Request, res: Response) => {
     });
 
     await user.save();
-    return res.status(201).json({ user });
+    res.status(201).json({ user });
+    return;
   } catch (error) {
     console.error("Error creating user:", error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
+    return;
   }
 };
 
@@ -55,13 +58,13 @@ export const getUserByUsername = async (req: Request, res: Response) => {
 
     const user = await User.findOne({ username });
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      res.status(404).json({ message: "User not found" });
     }
 
-    return res.status(200).json({ user });
+    res.status(200).json({ user });
   } catch (error) {
     console.error("Error fetching user:", error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
@@ -74,7 +77,8 @@ export const getUserTranscripts = async (req: Request, res: Response) => {
     // Find user
     const user = await User.findOne({ username });
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      res.status(404).json({ message: "User not found" });
+      return;
     }
 
     // Build query for transcripts
@@ -100,10 +104,10 @@ export const getUserTranscripts = async (req: Request, res: Response) => {
       .sort({ timestamp: -1 }) // Latest first
       .lean();
 
-    return res.status(200).json({ transcripts });
+    res.status(200).json({ transcripts });
   } catch (error) {
     console.error("Error fetching user transcripts:", error);
-    return res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error" });
   }
 };
 
