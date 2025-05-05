@@ -154,24 +154,62 @@ export default function SummaryScreen() {
           </View>
 
           <ScrollView style={styles.modalContent}>
-            <Text style={styles.summaryTitle}>
-              {selectedTranscript.oneLiner || "Untitled Summary"}
-            </Text>
-
-            <View style={styles.bulletPoints}>
-              <Text style={styles.bulletSectionTitle}>Bullets</Text>
-              {selectedTranscript.summary?.split("\n").map((point, index) => (
-                <View key={index} style={styles.bulletPoint}>
-                  <Text style={styles.bulletText}>• {point.trim()}</Text>
-                </View>
-              ))}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>One-line Summary</Text>
+              <View style={styles.sectionContent}>
+                {selectedTranscript.oneLiner ? (
+                  <Text style={styles.oneLinerDetail}>
+                    {selectedTranscript.oneLiner}
+                  </Text>
+                ) : (
+                  <Text style={styles.placeholderText}>
+                    No one-liner available
+                  </Text>
+                )}
+              </View>
             </View>
 
-            <View style={styles.detailedSection}>
+            <View style={styles.section}>
               <Text style={styles.sectionTitle}>Detailed Summary</Text>
-              <Text style={styles.detailedText}>
-                {selectedTranscript.summary || "No detailed summary available"}
-              </Text>
+              <View style={styles.sectionContent}>
+                {selectedTranscript.summary ? (
+                  <Text style={styles.summaryDetail}>
+                    {selectedTranscript.summary}
+                  </Text>
+                ) : selectedTranscript.summaryError ? (
+                  <Text style={styles.errorText}>
+                    Error generating summary: {selectedTranscript.summaryError}
+                  </Text>
+                ) : (
+                  <Text style={styles.placeholderText}>
+                    No summary available
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Full Transcript</Text>
+              <View style={styles.sectionContent}>
+                <Text style={styles.transcriptDetail}>
+                  {selectedTranscript.transcript}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.metadataSection}>
+              <View style={styles.metadataRow}>
+                <Text style={styles.metadataLabel}>Recording: </Text>
+                <Text style={styles.metadataValue}>
+                  {selectedTranscript.audioFile}
+                </Text>
+              </View>
+              <View style={styles.metadataRow}>
+                <Text style={styles.metadataLabel}>Date: </Text>
+                <Text style={styles.metadataValue}>
+                  {formatDate(selectedTranscript.timestamp)}
+                </Text>
+              </View>
             </View>
           </ScrollView>
         </View>
@@ -314,20 +352,70 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
   },
-  detailedSection: {
-    marginTop: 24,
-    marginBottom: 32,
+  section: {
+    marginBottom: 24,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  sectionContent: {
+    paddingHorizontal: 2,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
-    color: "#000000",
+    color: "#1a1a1a",
     marginBottom: 12,
   },
-  detailedText: {
-    fontSize: 16,
-    color: "#333333",
+  oneLinerDetail: {
+    fontSize: 18,
+    fontWeight: "500",
+    color: "#1a1a1a",
     lineHeight: 24,
+  },
+  summaryDetail: {
+    fontSize: 16,
+    color: "#333",
+    lineHeight: 22,
+  },
+  transcriptDetail: {
+    fontSize: 15,
+    color: "#666",
+    lineHeight: 21,
+  },
+  metadataSection: {
+    marginTop: 8,
+    marginBottom: 32,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+  },
+  metadataRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  metadataLabel: {
+    fontWeight: "500",
+    color: "#333",
+  },
+  metadataValue: {
+    fontSize: 14,
+    color: "#666",
+    flex: 1,
+  },
+  errorText: {
+    fontSize: 15,
+    color: "#e53935",
+    fontStyle: "italic",
   },
   loadingText: {
     fontSize: 16,
@@ -350,29 +438,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666666",
     textAlign: "center",
-  },
-  summaryTitle: {
-    fontSize: 24,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 20,
-    lineHeight: 32,
-  },
-  bulletPoints: {
-    marginTop: 16,
-  },
-  bulletSectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#000000",
-    marginBottom: 12,
-  },
-  bulletPoint: {
-    marginBottom: 8,
-  },
-  bulletText: {
-    fontSize: 16,
-    color: "#333333",
-    lineHeight: 24,
   },
 });
