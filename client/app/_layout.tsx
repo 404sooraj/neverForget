@@ -1,8 +1,9 @@
 // client/app/_layout.tsx
+import React from "react";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "./auth/AuthContext";
 import { Stack, useRouter } from "expo-router";
-import { View } from "react-native";
+import { View, Text, ActivityIndicator, StyleSheet } from "react-native";
 
 function RootLayoutNav() {
   const { username, isLoading } = useAuth();
@@ -19,7 +20,12 @@ function RootLayoutNav() {
   }, [username, isLoading]);
 
   if (isLoading) {
-    return <View />; // Or a loading spinner
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#007AFF" />
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
   }
 
   return (
@@ -37,3 +43,17 @@ export default function RootLayout() {
     </AuthProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: "#666",
+  },
+});
