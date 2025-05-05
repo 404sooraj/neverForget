@@ -1,42 +1,10 @@
+import { spawn } from "child_process";
 import { Request, Response } from "express";
-import { exec } from "child_process";
 import fs from "fs";
-import { Transcript } from "../modals/transcript.modals";
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import User from "../modals/user.modals";
-import multer from "multer";
 import path from "path";
+import { Transcript } from "../modals/transcript.modals";
+import User from "../modals/user.modals";
 import { addTranscriptToUser } from "./user.controller";
-
-// Extend Express Request type to include user
-declare global {
-  namespace Express {
-    interface Request {
-      user?: {
-        _id: string;
-      };
-    }
-  }
-}
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-// Configure multer for file upload
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, "uploads/");
-  },
-  filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname));
-  },
-});
-
-export const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
-});
 
 export const transcribeAudio = async (
   req: Request,
@@ -54,7 +22,6 @@ export const transcribeAudio = async (
       return;
     }
 
-    // Find user by username
     const user = await User.findOne({ username });
     if (!user) {
       res.status(404).json({ error: "User not found" });
@@ -62,144 +29,76 @@ export const transcribeAudio = async (
     }
 
     const filePath = req.file.path;
-    const outputTxt = `${filePath}.txt`;
+    const pythonScriptPath = path.join(__dirname, "..", "service", "transcribe.py");
 
-    exec(
-      `whisper ${filePath} --model tiny --output_dir uploads`,
-      async (err) => {
-        if (err) {
-          console.error("Whisper failed:", err);
-          res.status(500).json({ error: "Transcription failed" });
-          return;
-        }
+    const child = spawn("python", [pythonScriptPath, filePath]);
 
-        fs.readFile(outputTxt, "utf8", async (err, data) => {
-          if (err) {
-            console.error("Reading transcript failed:", err);
-            res.status(500).json({ error: "Failed to read transcript" });
-            return;
-          }
+    console.log("Starting transcription with:", {
+      pythonScriptPath,
+      filePath
+    });
 
-          try {
-            // Store transcript in MongoDB
-            const transcript = new Transcript({
-              userId: user._id,
-              audioFile: req.file!.originalname,
-              transcript: data,
-            });
+    let output = "";
+    let errorOutput = "";
 
-            await transcript.save();
+    child.stdout.on("data", (data) => {
+      output += data.toString();
+    });
 
-            // Add transcript to user's transcripts array
-            await addTranscriptToUser(user._id, transcript._id);
+    child.stderr.on("data", (data) => {
+      errorOutput += data.toString();
+      console.error("Python script error:", data.toString());
+    });
 
-            // Clean up files
-            fs.unlinkSync(filePath);
-            fs.unlinkSync(outputTxt);
+    child.on("close", async (code) => {
+      fs.unlinkSync(filePath); // Always clean up
 
-            res.json({ transcript: data });
-          } catch (error) {
-            console.error("Database storage failed:", error);
-            res.status(500).json({ error: "Failed to store transcript" });
-          }
-        });
+      if (code !== 0) {
+        console.error("Whisper Python script failed:", errorOutput);
+        res.status(500).json({ error: "Transcription failed" });
+        return;
       }
-    );
+
+      try {
+        const result = JSON.parse(output);
+        const text = result.text;
+
+        const transcript = new Transcript({
+          userId: user._id,
+          audioFile: req.file?.originalname,
+          transcript: text,
+        });
+
+        await transcript.save();
+        await addTranscriptToUser(user._id, transcript._id);
+
+        res.json({ transcript: text });
+      } catch (err) {
+        console.error("Error parsing Whisper output or storing:", err);
+        res.status(500).json({ error: "Failed to handle transcription" });
+      }
+    });
   } catch (error) {
-    console.error("Transcription process failed:", error);
+    console.error("Transcription process error:", error);
     res.status(500).json({ error: "Transcription process failed" });
   }
 };
 
-// Function to generate summary using Gemini
-export const generateSummary = async (transcript: string): Promise<string> => {
-  try {
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error("GEMINI_API_KEY is not configured");
-    }
-
-    const model = genAI.getGenerativeModel({ model: "gemini-pro" });
-    const prompt = `Please provide a concise summary of the following transcript:\n\n${transcript}`;
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-
-    if (!response.text()) {
-      throw new Error("Failed to generate summary: Empty response from Gemini");
-    }
-
-    return response.text();
-  } catch (error: any) {
-    console.error("Summary generation failed:", error);
-    throw new Error(
-      `Failed to generate summary: ${error?.message || "Unknown error"}`
-    );
-  }
-};
-
-// Function to process pending transcripts
-export const processPendingTranscripts = async (): Promise<void> => {
-  try {
-    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-
-    const pendingTranscripts = await Transcript.find({
-      isSummarized: false,
-      timestamp: { $lt: thirtyMinutesAgo },
-    });
-
-    console.log(`Processing ${pendingTranscripts.length} pending transcripts`);
-
-    for (const transcript of pendingTranscripts) {
-      try {
-        const summary = await generateSummary(transcript.transcript);
-
-        if (summary) {
-          transcript.summary = summary;
-          transcript.isSummarized = true;
-          await transcript.save();
-          console.log(`Summary generated for transcript ${transcript._id}`);
-        } else {
-          console.warn(
-            `Empty summary generated for transcript ${transcript._id}`
-          );
-        }
-      } catch (error) {
-        console.error(`Failed to process transcript ${transcript._id}:`, error);
-        // Mark as failed but don't retry immediately to avoid infinite loops
-        transcript.isSummarized = true;
-        transcript.summary = "Failed to generate summary";
-        await transcript.save();
-      }
-    }
-  } catch (error) {
-    console.error("Failed to process pending transcripts:", error);
-    throw error;
-  }
-};
-
-// New controller for storing already transcribed data
-export const storeTranscribedData = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const storeTranscribedData = async (req: Request, res: Response): Promise<void> => {
   try {
     const { transcript, audioFileName, username } = req.body;
-
-    if (!transcript || !audioFileName || !username) {
-      res.status(400).json({
-        error: "Transcript, audio file name, and username are required",
-      });
+    
+    if (!transcript || !username) {
+      res.status(400).json({ error: "Transcript and username are required" });
       return;
     }
 
-    // Find user by username
     const user = await User.findOne({ username });
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
     }
 
-    // Store transcript in MongoDB
     const newTranscript = new Transcript({
       userId: user._id,
       audioFile: audioFileName,
@@ -207,97 +106,56 @@ export const storeTranscribedData = async (
     });
 
     await newTranscript.save();
-
-    // Add transcript to user's transcripts array
     await addTranscriptToUser(user._id, newTranscript._id);
 
-    console.log("Transcribed data stored successfully");
-    res.json({
-      message: "Transcribed data stored successfully",
-      transcript: newTranscript,
-    });
+    res.json({ success: true, transcript: newTranscript });
   } catch (error) {
-    console.error("Failed to store transcribed data:", error);
-    res.status(500).json({ error: "Failed to store transcribed data" });
+    console.error("Store transcription error:", error);
+    res.status(500).json({ error: "Failed to store transcription" });
   }
 };
 
-// Get all transcripts for the user by username
-export const getTranscriptsByUsername = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const getTranscriptsByUsername = async (req: Request, res: Response): Promise<void> => {
   try {
     const { username } = req.params;
-
-    // Find user by username
     const user = await User.findOne({ username });
+    
     if (!user) {
       res.status(404).json({ error: "User not found" });
       return;
     }
 
-    const transcripts = await Transcript.find({ userId: user._id }).sort({
-      timestamp: -1,
-    });
+    const transcripts = await Transcript.find({ userId: user._id });
     res.json(transcripts);
   } catch (error) {
-    console.error("Failed to fetch transcripts:", error);
-    res.status(500).json({ error: "Failed to fetch transcripts" });
+    console.error("Get transcripts error:", error);
+    res.status(500).json({ error: "Failed to get transcripts" });
   }
 };
 
-// Delete a transcript
-export const deleteTranscript = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const deleteTranscript = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
-    const { username } = req.body;
-
-    if (!username) {
-      res.status(400).json({ error: "Username is required" });
-      return;
-    }
-
-    // Find user by username
-    const user = await User.findOne({ username });
-    if (!user) {
-      res.status(404).json({ error: "User not found" });
-      return;
-    }
-
-    const transcript = await Transcript.findOneAndDelete({
-      _id: id,
-      userId: user._id,
-    });
-
+    const transcript = await Transcript.findByIdAndDelete(id);
+    
     if (!transcript) {
       res.status(404).json({ error: "Transcript not found" });
       return;
     }
 
-    // Remove transcript from user's transcripts array
-    await User.findByIdAndUpdate(user._id, { $pull: { transcripts: id } });
-
-    res.json({ message: "Transcript deleted successfully" });
+    res.json({ success: true });
   } catch (error) {
-    console.error("Failed to delete transcript:", error);
+    console.error("Delete transcript error:", error);
     res.status(500).json({ error: "Failed to delete transcript" });
   }
 };
 
-// Get all transcripts
-export const getAllTranscripts = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
+export const getAllTranscripts = async (req: Request, res: Response): Promise<void> => {
   try {
-    const transcripts = await Transcript.find().sort({ timestamp: -1 });
+    const transcripts = await Transcript.find();
     res.json(transcripts);
   } catch (error) {
-    console.error("Failed to fetch all transcripts:", error);
-    res.status(500).json({ error: "Failed to fetch all transcripts" });
+    console.error("Get all transcripts error:", error);
+    res.status(500).json({ error: "Failed to get all transcripts" });
   }
 };
