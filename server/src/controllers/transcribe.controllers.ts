@@ -65,7 +65,7 @@ export const transcribeAudio = async (
     const outputTxt = `${filePath}.txt`;
 
     exec(
-      `whisper ${filePath} --model base --output_dir uploads`,
+      `whisper ${filePath} --model tiny --output_dir uploads`,
       async (err) => {
         if (err) {
           console.error("Whisper failed:", err);
