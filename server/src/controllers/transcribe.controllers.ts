@@ -114,15 +114,26 @@ export const transcribeAudio = async (
 // Function to generate summary using Gemini
 export const generateSummary = async (transcript: string): Promise<string> => {
   try {
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
+    }
+
     const model = genAI.getGenerativeModel({ model: "gemini-pro" });
     const prompt = `Please provide a concise summary of the following transcript:\n\n${transcript}`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
+
+    if (!response.text()) {
+      throw new Error("Failed to generate summary: Empty response from Gemini");
+    }
+
     return response.text();
-  } catch (error) {
-    console.error("Gemini summary generation failed:", error);
-    throw error;
+  } catch (error: any) {
+    console.error("Summary generation failed:", error);
+    throw new Error(
+      `Failed to generate summary: ${error?.message || "Unknown error"}`
+    );
   }
 };
 
@@ -136,19 +147,33 @@ export const processPendingTranscripts = async (): Promise<void> => {
       timestamp: { $lt: thirtyMinutesAgo },
     });
 
+    console.log(`Processing ${pendingTranscripts.length} pending transcripts`);
+
     for (const transcript of pendingTranscripts) {
       try {
         const summary = await generateSummary(transcript.transcript);
-        transcript.summary = summary;
-        transcript.isSummarized = true;
-        await transcript.save();
-        console.log(`Summary generated for transcript ${transcript._id}`);
+
+        if (summary) {
+          transcript.summary = summary;
+          transcript.isSummarized = true;
+          await transcript.save();
+          console.log(`Summary generated for transcript ${transcript._id}`);
+        } else {
+          console.warn(
+            `Empty summary generated for transcript ${transcript._id}`
+          );
+        }
       } catch (error) {
         console.error(`Failed to process transcript ${transcript._id}:`, error);
+        // Mark as failed but don't retry immediately to avoid infinite loops
+        transcript.isSummarized = true;
+        transcript.summary = "Failed to generate summary";
+        await transcript.save();
       }
     }
   } catch (error) {
     console.error("Failed to process pending transcripts:", error);
+    throw error;
   }
 };
 
@@ -260,5 +285,19 @@ export const deleteTranscript = async (
   } catch (error) {
     console.error("Failed to delete transcript:", error);
     res.status(500).json({ error: "Failed to delete transcript" });
+  }
+};
+
+// Get all transcripts
+export const getAllTranscripts = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const transcripts = await Transcript.find().sort({ timestamp: -1 });
+    res.json(transcripts);
+  } catch (error) {
+    console.error("Failed to fetch all transcripts:", error);
+    res.status(500).json({ error: "Failed to fetch all transcripts" });
   }
 };
