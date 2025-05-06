@@ -89,6 +89,7 @@ NeverForget aims to:
 - MongoDB instance
 - OpenAI API key
 - Google Cloud API key (for Gemini)
+- FFmpeg installed and available in system PATH (required for Whisper audio processing)
 
 ### Installation
 
@@ -125,13 +126,7 @@ WHISPER_MODEL=base  # Options: tiny, base, turbo
 PORT=3000
 ```
 
-4. Initialize the database:
-```bash
-cd server
-npm run init-db
-```
-
-5. Start the development servers:
+4. Start the development servers:
 
 Backend:
 ```bash
