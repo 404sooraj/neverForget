@@ -21,12 +21,13 @@ export const getAllUsers = async (req: Request, res: Response) => {
 };
 
 // Create a new user
-export const createUser = async (req: Request, res: Response) => {
+export const createUser = async (req: Request, res: Response): Promise<void> => {
   try {
     const { username, email } = req.body;
 
     if (!username) {
       res.status(400).json({ message: "Username is required" });
+      return
     }
 
     // Check if username already exists
@@ -52,19 +53,22 @@ export const createUser = async (req: Request, res: Response) => {
 };
 
 // Get user by username
-export const getUserByUsername = async (req: Request, res: Response) => {
+export const getUserByUsername = async (req: Request, res: Response): Promise<void> => {
   try {
     const { username } = req.params;
 
     const user = await User.findOne({ username });
     if (!user) {
       res.status(404).json({ message: "User not found" });
+      return;
     }
 
     res.status(200).json({ user });
+    return;
   } catch (error) {
     console.error("Error fetching user:", error);
     res.status(500).json({ message: "Server error" });
+    return;
   }
 };
 
