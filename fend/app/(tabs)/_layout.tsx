@@ -55,6 +55,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="chatbot"
+        options={{
+          title: "Memory AI",
+          tabBarIcon: ({ color, focused }) => (
+            <Ionicons
+              name={focused ? "chatbubble-sharp" : "chatbubble-outline"}
+              color={color}
+              size={26}
+              style={{ marginBottom: -4 }}
+            />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: "Profile",
