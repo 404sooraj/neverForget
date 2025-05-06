@@ -1,6 +1,6 @@
-import React from 'react';
+import React from "react";
 import {
-  View,
+  ScrollView,
   StyleSheet,
   Platform,
   Text,
@@ -9,6 +9,7 @@ import {
   Animated,
   FlatList,
   ActivityIndicator,
+  View,
 } from "react-native";
 import { Audio } from "expo-av";
 import { useState, useRef, useEffect } from "react";
@@ -21,6 +22,15 @@ import { uploadQueue } from "@/modules/uploadQueue";
 
 const RECORDING_INTERVAL_MS = 10 * 1000; // 1 minute for testing, revert to 60 * 1000 for production
 
+// Interface for transcription queue status
+interface TranscriptionQueueStatus {
+  queueLength: number;
+  activeJobs: number;
+  maxConcurrency: number;
+  usesGPU: boolean;
+  timestamp: string;
+}
+
 export default function HomeScreen() {
   const recordingRef = useRef<Audio.Recording | null>(null);
   const intervalRef = useRef<number | null>(null);
@@ -31,6 +41,11 @@ export default function HomeScreen() {
   const [currentTask, setCurrentTask] = useState<string | null>(null);
   const [isLoadingTask, setIsLoadingTask] = useState(false);
 
+  // Add state for transcription queue
+  const [transcriptionQueue, setTranscriptionQueue] =
+    useState<TranscriptionQueueStatus | null>(null);
+  const [isLoadingQueue, setIsLoadingQueue] = useState(false);
+
   useEffect(() => {
     const unsubscribe = uploadQueue.addListener((queue) => {
       setQueueItems(queue);
@@ -39,14 +54,42 @@ export default function HomeScreen() {
     // Fetch current task when component mounts
     fetchCurrentTask();
 
+    // Set up interval to fetch transcription queue status
+    fetchTranscriptionQueue();
+    const queueInterval = setInterval(fetchTranscriptionQueue, 5000); // Update every 5 seconds
+
     return () => {
       unsubscribe();
+      clearInterval(queueInterval);
       // Ensure stopRecording is called which now handles async cleanup
       (async () => {
         await stopRecording();
       })();
     };
   }, []);
+
+  const fetchTranscriptionQueue = async () => {
+    setIsLoadingQueue(true);
+    try {
+      // Log the API URL for debugging
+      const apiUrl = `${process.env.EXPO_PUBLIC_API_URL}/queue-status`;
+      console.log("Fetching from URL:", apiUrl);
+
+      const response = await fetch(apiUrl);
+
+      if (!response.ok)
+        throw new Error(
+          `Failed to fetch queue status: ${response.status} ${response.statusText}`
+        );
+
+      const data = await response.json();
+      setTranscriptionQueue(data);
+    } catch (error) {
+      console.error("Error fetching transcription queue:", error);
+    } finally {
+      setIsLoadingQueue(false);
+    }
+  };
 
   const fetchCurrentTask = async () => {
     if (!username) return;
@@ -235,60 +278,166 @@ export default function HomeScreen() {
     }
   };
 
-  const renderQueueItem = ({ item }: { item: any }) => (
-    <View style={styles.queueItem}>
-      <View style={styles.queueItemContent}>
-        <Ionicons
-          name={
-            item.status === "completed"
-              ? "checkmark-circle"
-              : item.status === "failed"
-              ? "alert-circle"
-              : item.status === "processing"
-              ? "reload-circle"
-              : "time"
-          }
-          size={24}
-          color={
-            item.status === "completed"
-              ? "#4CAF50"
-              : item.status === "failed"
-              ? "#F44336"
-              : item.status === "processing"
-              ? "#2196F3"
-              : "#FFC107"
-          }
-        />
-        <Text style={styles.queueItemText}>
-          {item.status === "completed"
-            ? "Upload complete"
-            : item.status === "failed"
-            ? `Upload failed (${item.retries} attempts)`
-            : item.status === "processing"
-            ? "Uploading..."
-            : "Waiting to upload"}
-        </Text>
+  // Render queue status
+  const renderQueueStatus = () => {
+    if (isLoadingQueue && !transcriptionQueue) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color="#1877F2" />
+          <Text style={styles.loadingText}>Loading transcription queue...</Text>
+        </View>
+      );
+    }
+
+    if (!transcriptionQueue) {
+      return (
+        <View style={styles.emptyQueueContainer}>
+          <Ionicons name="server-outline" size={32} color="#CCCCCC" />
+          <Text style={styles.emptyQueueText}>Queue status unavailable</Text>
+        </View>
+      );
+    }
+
+    const { queueLength, activeJobs, maxConcurrency, usesGPU } =
+      transcriptionQueue;
+    const hasActiveJobs = activeJobs > 0;
+    const hasQueuedJobs = queueLength > 0;
+    const totalJobs = queueLength + activeJobs;
+
+    return (
+      <View>
+        {/* Main metrics row with large numbers */}
+        <View style={styles.mainMetricsContainer}>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricValue}>{totalJobs}</Text>
+            <Text style={styles.metricLabel}>Total Jobs</Text>
+          </View>
+
+          <View style={[styles.metricCard, styles.activeJobsCard]}>
+            <Text
+              style={[
+                styles.metricValue,
+                hasActiveJobs ? styles.activeValue : {},
+              ]}
+            >
+              {activeJobs}
+            </Text>
+            <Text style={styles.metricLabel}>Processing</Text>
+          </View>
+
+          <View style={[styles.metricCard, styles.queuedCard]}>
+            <Text
+              style={[
+                styles.metricValue,
+                hasQueuedJobs ? styles.queuedValue : {},
+              ]}
+            >
+              {queueLength}
+            </Text>
+            <Text style={styles.metricLabel}>In Queue</Text>
+          </View>
+        </View>
+
+        {/* Status message */}
+        <View style={styles.queueStatusMessage}>
+          <Ionicons
+            name={
+              hasActiveJobs
+                ? "pulse"
+                : hasQueuedJobs
+                ? "time-outline"
+                : "checkmark-circle"
+            }
+            size={18}
+            color={
+              hasActiveJobs ? "#1877F2" : hasQueuedJobs ? "#FFC107" : "#4CAF50"
+            }
+          />
+          <Text style={styles.queueStatusMessageText}>
+            {hasActiveJobs
+              ? `Processing ${activeJobs} recording${
+                  activeJobs > 1 ? "s" : ""
+                } on ${usesGPU ? "GPU" : "CPU"}`
+              : hasQueuedJobs
+              ? `${queueLength} recording${
+                  queueLength > 1 ? "s" : ""
+                } waiting to be processed`
+              : "All recordings processed"}
+          </Text>
+        </View>
+
+        {/* Capacity indicator */}
+        <View style={styles.capacityContainer}>
+          <Text style={styles.capacityLabel}>System capacity:</Text>
+          <View style={styles.capacityBarContainer}>
+            <View
+              style={[
+                styles.capacityBar,
+                {
+                  width: `${Math.min(
+                    100,
+                    (activeJobs / maxConcurrency) * 100
+                  )}%`,
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.capacityText}>
+            {activeJobs}/{maxConcurrency}
+          </Text>
+        </View>
+
+        {isLoadingQueue && (
+          <View style={styles.refreshIndicator}>
+            <ActivityIndicator size="small" color="#1877F2" />
+          </View>
+        )}
       </View>
-      {item.status === "failed" && (
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => uploadQueue.clearFailedUploads()}
-        >
-          <Text style={styles.retryButtonText}>Clear</Text>
-        </TouchableOpacity>
-      )}
-    </View>
-  );
+    );
+  };
+
+  // Render queue container
+  const renderQueueContainer = () => {
+    return (
+      <View style={styles.queueContainer}>
+        <View style={styles.queueHeader}>
+          <View style={styles.queueTitleContainer}>
+            <Ionicons name="server" size={22} color="#1877F2" />
+            <Text style={styles.queueTitle}>Transcription Queue</Text>
+          </View>
+          <TouchableOpacity
+            onPress={fetchTranscriptionQueue}
+            disabled={isLoadingQueue}
+            style={styles.refreshButton}
+          >
+            <Ionicons
+              name="refresh"
+              size={20}
+              color={isLoadingQueue ? "#CCCCCC" : "#1877F2"}
+            />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.queueStatusContainer}>{renderQueueStatus()}</View>
+      </View>
+    );
+  };
 
   return (
-    <View style={styles.container}>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+    >
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <View style={styles.welcomeContainer}>
             <Text style={styles.greetingText}>Hello,</Text>
             <Text style={styles.usernameText}>{username}! 👋</Text>
           </View>
-          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+          <TouchableOpacity
+            style={styles.signOutButton}
+            onPress={handleSignOut}
+          >
             <Ionicons name="log-out-outline" size={24} color="#495057" />
           </TouchableOpacity>
         </View>
@@ -333,7 +482,10 @@ export default function HomeScreen() {
         <View style={styles.recordButtonContainer}>
           <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
             <TouchableOpacity
-              style={[styles.recordButton, isRecording && styles.recordingButton]}
+              style={[
+                styles.recordButton,
+                isRecording && styles.recordingButton,
+              ]}
               onPress={handleRecordPress}
               activeOpacity={0.8}
             >
@@ -345,26 +497,15 @@ export default function HomeScreen() {
             </TouchableOpacity>
           </Animated.View>
           <Text style={styles.recordingStatus}>
-            {isRecording ? "Recording in progress..." : "Tap to start recording"}
+            {isRecording
+              ? "Recording in progress..."
+              : "Tap to start recording"}
           </Text>
         </View>
       </View>
 
-      {queueItems.length > 0 && (
-        <View style={styles.queueContainer}>
-          <View style={styles.queueHeader}>
-            <Text style={styles.queueTitle}>Upload Queue</Text>
-            <Text style={styles.queueCount}>{queueItems.length} items</Text>
-          </View>
-          <FlatList
-            data={queueItems}
-            renderItem={renderQueueItem}
-            keyExtractor={(item, index) => index.toString()}
-            style={styles.queueList}
-          />
-        </View>
-      )}
-    </View>
+      {renderQueueContainer()}
+    </ScrollView>
   );
 }
 
@@ -372,6 +513,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#F5F7FA",
+  },
+  contentContainer: {
+    flexGrow: 1,
+    paddingBottom: 20,
   },
   header: {
     backgroundColor: "#FFF",
@@ -458,15 +603,14 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#F0F8FF",
-    justifyContent: "center",
+    backgroundColor: "#F8FAFF",
     alignItems: "center",
+    justifyContent: "center",
   },
   rotating: {
     opacity: 0.6,
   },
   recordingSection: {
-    flex: 1,
     justifyContent: "center",
     alignItems: "center",
     paddingBottom: 40,
@@ -503,7 +647,7 @@ const styles = StyleSheet.create({
     margin: 20,
     backgroundColor: "#FFF",
     borderRadius: 16,
-    padding: 16,
+    padding: 20,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -517,50 +661,141 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 16,
+  },
+  queueTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   queueTitle: {
     fontSize: 18,
-    fontWeight: "600",
+    fontWeight: "700",
     color: "#1A1A1A",
+    marginLeft: 8,
   },
-  queueCount: {
-    fontSize: 14,
+  queueStatusContainer: {
+    marginTop: 8,
+  },
+  mainMetricsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+    backgroundColor: "#F8FAFF",
+    borderRadius: 12,
+    padding: 16,
+  },
+  metricCard: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  metricValue: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#1A1A1A",
+    marginBottom: 4,
+  },
+  metricLabel: {
+    fontSize: 13,
     color: "#666",
     fontWeight: "500",
   },
-  queueList: {
-    maxHeight: 200,
+  activeJobsCard: {
+    borderLeftWidth: 1,
+    borderLeftColor: "#E5E9F0",
+    borderRightWidth: 1,
+    borderRightColor: "#E5E9F0",
+    paddingHorizontal: 8,
   },
-  queueItem: {
+  queuedCard: {
+    paddingLeft: 8,
+  },
+  activeValue: {
+    color: "#4CAF50",
+  },
+  queuedValue: {
+    color: "#FFC107",
+  },
+  queueStatusMessage: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E9F0",
+    marginBottom: 16,
+    backgroundColor: "#F8FAFF",
+    borderRadius: 12,
+    padding: 12,
   },
-  queueItemContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  queueItemText: {
-    marginLeft: 12,
+  queueStatusMessageText: {
     fontSize: 14,
-    color: "#4B4F56",
+    color: "#666",
+    marginLeft: 8,
     flex: 1,
   },
-  retryButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#F0F8FF",
-    borderRadius: 16,
-    marginLeft: 12,
+  capacityContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    backgroundColor: "#F8FAFF",
+    borderRadius: 12,
+    padding: 12,
   },
-  retryButtonText: {
-    color: "#1877F2",
-    fontSize: 12,
+  capacityLabel: {
+    fontSize: 14,
+    color: "#666",
+    marginRight: 8,
+    width: 80,
+  },
+  capacityBarContainer: {
+    flex: 1,
+    height: 12,
+    backgroundColor: "#E5E9F0",
+    borderRadius: 6,
+    marginRight: 8,
+    overflow: "hidden",
+  },
+  capacityBar: {
+    height: "100%",
+    backgroundColor: "#1877F2",
+    borderRadius: 6,
+  },
+  capacityText: {
+    fontSize: 14,
+    color: "#1A1A1A",
     fontWeight: "500",
+    width: 30,
+    textAlign: "right",
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  loadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: "#666",
+  },
+  refreshIndicator: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  emptyQueueContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 30,
+    backgroundColor: "#F8FAFF",
+    borderRadius: 12,
+  },
+  emptyQueueText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: "#999",
+    fontStyle: "italic",
   },
 });
