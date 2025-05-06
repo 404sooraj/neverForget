@@ -93,6 +93,14 @@ NeverForget aims to:
 
 ### Installation
 
+@ pre installation requirements
+To install [OpenAI Whisper](https://github.com/openai/whisper) and use the `whisper` command globally, run:
+
+```bash
+pip install -U openai-whisper
+```
+
+
 1. Clone the repository:
 ```bash
 git clone https://github.com/yourusername/neverForget.git
