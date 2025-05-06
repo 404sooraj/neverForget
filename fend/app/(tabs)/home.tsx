@@ -7,6 +7,7 @@ import {
   Alert,
   Animated,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
 import { Audio } from "expo-av";
 import { useState, useRef, useEffect } from "react";
@@ -26,11 +27,16 @@ export default function HomeScreen() {
   const { username, signOut } = useAuth();
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const [queueItems, setQueueItems] = useState<any[]>([]);
+  const [currentTask, setCurrentTask] = useState<string | null>(null);
+  const [isLoadingTask, setIsLoadingTask] = useState(false);
 
   useEffect(() => {
     const unsubscribe = uploadQueue.addListener((queue) => {
       setQueueItems(queue);
     });
+
+    // Fetch current task when component mounts
+    fetchCurrentTask();
 
     return () => {
       unsubscribe();
@@ -40,6 +46,26 @@ export default function HomeScreen() {
       })();
     };
   }, []);
+
+  const fetchCurrentTask = async () => {
+    if (!username) return;
+
+    setIsLoadingTask(true);
+    try {
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/current-task/${username}`
+      );
+      if (!response.ok) throw new Error("Failed to fetch current task");
+
+      const data = await response.json();
+      setCurrentTask(data.currentTask);
+    } catch (error) {
+      console.error("Error fetching current task:", error);
+      setCurrentTask("Unable to fetch current task");
+    } finally {
+      setIsLoadingTask(false);
+    }
+  };
 
   const handleIntervalTick = async () => {
     const recordingToProcess = recordingRef.current;
@@ -62,7 +88,10 @@ export default function HomeScreen() {
       console.error("Critical error stopping/unloading segment:", err);
       recordingRef.current = null;
       await stopRecording();
-      Alert.alert("Recording Error", "Failed to stop previous segment. Recording halted.");
+      Alert.alert(
+        "Recording Error",
+        "Failed to stop previous segment. Recording halted."
+      );
       return;
     }
 
@@ -75,20 +104,25 @@ export default function HomeScreen() {
     recordingRef.current = null;
 
     // Add a delay before starting the next recording segment
-    await new Promise(resolve => setTimeout(resolve, 300)); // 300ms delay
+    await new Promise((resolve) => setTimeout(resolve, 300)); // 300ms delay
 
     // Attempt to start a new recording segment
     try {
       console.log("Preparing new recording segment...");
       const newRecording = new Audio.Recording();
-      await newRecording.prepareToRecordAsync(RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
+      await newRecording.prepareToRecordAsync(
+        RECORDING_OPTIONS_PRESET_HIGH_QUALITY
+      );
       await newRecording.startAsync();
       recordingRef.current = newRecording;
       console.log("New segment recording started.");
     } catch (err) {
       console.error("Failed to start new recording segment:", err);
       await stopRecording();
-      Alert.alert("Recording Error", "Failed to start new segment. Recording halted.");
+      Alert.alert(
+        "Recording Error",
+        "Failed to start new segment. Recording halted."
+      );
     }
   };
 
@@ -98,23 +132,38 @@ export default function HomeScreen() {
     try {
       const permission = await Audio.requestPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert("Permission Required", "Microphone permission is required!");
+        Alert.alert(
+          "Permission Required",
+          "Microphone permission is required!"
+        );
         return;
       }
-      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
 
       console.log("Starting initial recording...");
       const newRecording = new Audio.Recording();
-      await newRecording.prepareToRecordAsync(RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
+      await newRecording.prepareToRecordAsync(
+        RECORDING_OPTIONS_PRESET_HIGH_QUALITY
+      );
       await newRecording.startAsync();
       recordingRef.current = newRecording;
       setIsRecording(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      Animated.spring(scaleAnim, { toValue: 1.1, friction: 3, useNativeDriver: true }).start();
+      Animated.spring(scaleAnim, {
+        toValue: 1.1,
+        friction: 3,
+        useNativeDriver: true,
+      }).start();
       console.log("Initial recording started.");
 
       if (intervalRef.current !== null) clearInterval(intervalRef.current);
-      intervalRef.current = setInterval(handleIntervalTick, RECORDING_INTERVAL_MS);
+      intervalRef.current = setInterval(
+        handleIntervalTick,
+        RECORDING_INTERVAL_MS
+      );
       console.log(`Interval set for ${RECORDING_INTERVAL_MS / 1000} seconds.`);
     } catch (err) {
       console.error("Failed to start recording:", err);
@@ -122,7 +171,11 @@ export default function HomeScreen() {
       recordingRef.current = null;
       if (intervalRef.current !== null) clearInterval(intervalRef.current);
       intervalRef.current = null;
-      Animated.spring(scaleAnim, { toValue: 1, friction: 3, useNativeDriver: true }).start();
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 3,
+        useNativeDriver: true,
+      }).start();
       Alert.alert("Recording Error", "Could not start recording.");
     }
   }
@@ -142,7 +195,11 @@ export default function HomeScreen() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     setIsRecording(false);
-    Animated.spring(scaleAnim, { toValue: 1, friction: 3, useNativeDriver: true }).start();
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      friction: 3,
+      useNativeDriver: true,
+    }).start();
 
     if (lastRecording) {
       console.log("Processing final segment...");
@@ -180,28 +237,39 @@ export default function HomeScreen() {
   const renderQueueItem = ({ item }: { item: any }) => (
     <View style={styles.queueItem}>
       <View style={styles.queueItemContent}>
-        <Ionicons 
+        <Ionicons
           name={
-            item.status === 'completed' ? 'checkmark-circle' :
-            item.status === 'failed' ? 'alert-circle' :
-            item.status === 'processing' ? 'reload-circle' : 'time'
-          } 
-          size={24} 
+            item.status === "completed"
+              ? "checkmark-circle"
+              : item.status === "failed"
+              ? "alert-circle"
+              : item.status === "processing"
+              ? "reload-circle"
+              : "time"
+          }
+          size={24}
           color={
-            item.status === 'completed' ? '#4CAF50' :
-            item.status === 'failed' ? '#F44336' :
-            item.status === 'processing' ? '#2196F3' : '#FFC107'
+            item.status === "completed"
+              ? "#4CAF50"
+              : item.status === "failed"
+              ? "#F44336"
+              : item.status === "processing"
+              ? "#2196F3"
+              : "#FFC107"
           }
         />
         <Text style={styles.queueItemText}>
-          {item.status === 'completed' ? 'Upload complete' :
-           item.status === 'failed' ? `Upload failed (${item.retries} attempts)` :
-           item.status === 'processing' ? 'Uploading...' :
-           'Waiting to upload'}
+          {item.status === "completed"
+            ? "Upload complete"
+            : item.status === "failed"
+            ? `Upload failed (${item.retries} attempts)`
+            : item.status === "processing"
+            ? "Uploading..."
+            : "Waiting to upload"}
         </Text>
       </View>
-      {item.status === 'failed' && (
-        <TouchableOpacity 
+      {item.status === "failed" && (
+        <TouchableOpacity
           style={styles.retryButton}
           onPress={() => uploadQueue.clearFailedUploads()}
         >
@@ -219,6 +287,34 @@ export default function HomeScreen() {
           <Ionicons name="log-out-outline" size={24} color="#495057" />
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
+      </View>
+
+      <View style={styles.currentTaskContainer}>
+        <View style={styles.currentTaskHeader}>
+          <Ionicons name="bookmark" size={24} color="#1877F2" />
+          <Text style={styles.currentTaskTitle}>Current Focus</Text>
+          <TouchableOpacity
+            style={styles.refreshButton}
+            onPress={fetchCurrentTask}
+            disabled={isLoadingTask}
+          >
+            <Ionicons
+              name="refresh"
+              size={20}
+              color="#1877F2"
+              style={isLoadingTask ? styles.rotating : undefined}
+            />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.currentTaskContent}>
+          {isLoadingTask ? (
+            <ActivityIndicator size="small" color="#1877F2" />
+          ) : (
+            <Text style={styles.currentTaskText}>
+              {currentTask || "No active task detected"}
+            </Text>
+          )}
+        </View>
       </View>
 
       <View style={styles.recordButtonContainer}>
@@ -316,7 +412,7 @@ const styles = StyleSheet.create({
   queueContainer: {
     marginTop: 20,
     padding: 16,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 12,
     shadowColor: "#000",
     shadowOffset: {
@@ -329,41 +425,82 @@ const styles = StyleSheet.create({
   },
   queueTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 12,
-    color: '#1C1E21',
+    color: "#1C1E21",
   },
   queueList: {
     maxHeight: 200,
   },
   queueItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E4E6EB',
+    borderBottomColor: "#E4E6EB",
   },
   queueItemContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
   queueItemText: {
     marginLeft: 12,
     fontSize: 14,
-    color: '#4B4F56',
+    color: "#4B4F56",
   },
   retryButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: '#E4E6EB',
+    backgroundColor: "#E4E6EB",
     borderRadius: 16,
     marginLeft: 12,
   },
   retryButtonText: {
-    color: '#4B4F56',
+    color: "#4B4F56",
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
+  },
+  currentTaskContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  currentTaskHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  currentTaskTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1C1E21",
+    marginLeft: 8,
+    flex: 1,
+  },
+  currentTaskContent: {
+    minHeight: 50,
+    justifyContent: "center",
+  },
+  currentTaskText: {
+    fontSize: 16,
+    color: "#4B4F56",
+    lineHeight: 24,
+  },
+  refreshButton: {
+    padding: 8,
+  },
+  rotating: {
+    opacity: 0.5,
   },
 });

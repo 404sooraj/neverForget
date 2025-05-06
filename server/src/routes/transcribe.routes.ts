@@ -7,6 +7,7 @@ import {
   deleteTranscript,
   getAllTranscripts,
   getTranscriptionStatus,
+  getCurrentTask,
 } from "../controllers/transcribe.controllers";
 // import { authMiddleware } from "../middleware/auth.middleware";
 
@@ -34,5 +35,8 @@ router.delete("/transcripts/:id", deleteTranscript);
 
 // Get transcription status
 router.get("/transcription-status/:jobId", getTranscriptionStatus);
+
+// Get current task
+router.get("/current-task/:username", getCurrentTask);
 
 export default router;
