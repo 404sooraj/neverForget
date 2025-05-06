@@ -39,6 +39,13 @@ export const upload = multer({
   },
 });
 
+// Helper function to validate transcript text
+const isValidTranscript = (text: string): boolean => {
+  // Remove whitespace and check if there's actual content
+  const cleaned = text.trim();
+  return cleaned.length > 0 && !/^[\s\n\r]*$/.test(cleaned);
+};
+
 export const transcribeAudio = async (
   req: Request,
   res: Response
@@ -84,6 +91,14 @@ export const transcribeAudio = async (
           // Read the transcription result
           const transcriptionText = fs.readFileSync(`${filePath}.txt`, 'utf8');
 
+          // Check if transcription is valid
+          if (!isValidTranscript(transcriptionText)) {
+            console.log("Transcription result is empty or invalid");
+            fs.unlink(filePath, () => {});
+            fs.unlink(`${filePath}.txt`, () => {});
+            return;
+          }
+
           // Store transcript in MongoDB
           const newTranscript = new Transcript({
             userId: user._id,
@@ -98,7 +113,7 @@ export const transcribeAudio = async (
           fs.unlink(filePath, () => {});
           fs.unlink(`${filePath}.txt`, () => {});
 
-          // Generate summary asynchronously
+          // Generate summary asynchronously only if transcript is valid
           generateAndSaveSummary(newTranscript).catch((summaryError) => {
             console.error("Background summary generation failed:", summaryError);
           });
@@ -193,10 +208,20 @@ ${transcript}`;
 // Helper function to generate and save summary
 const generateAndSaveSummary = async (transcriptDoc: any): Promise<void> => {
   try {
+    console.log(`Checking transcript ${transcriptDoc._id} for summarization...`);
+    
+    // Check if transcript is valid
+    if (!transcriptDoc.transcript || !isValidTranscript(transcriptDoc.transcript)) {
+      console.log(`Transcript ${transcriptDoc._id} is empty or invalid, skipping summarization`);
+      transcriptDoc.isSummarized = true;
+      transcriptDoc.summaryError = "Empty or invalid transcript";
+      transcriptDoc.summaryTimestamp = new Date();
+      await transcriptDoc.save();
+      return;
+    }
+
     console.log(`Generating summary for transcript ${transcriptDoc._id}...`);
-    const { summary, oneLiner } = await generateSummary(
-      transcriptDoc.transcript
-    );
+    const { summary, oneLiner } = await generateSummary(transcriptDoc.transcript);
 
     transcriptDoc.summary = summary;
     transcriptDoc.oneLiner = oneLiner;
@@ -232,6 +257,14 @@ export const storeTranscribedData = async (
       return;
     }
 
+    // Validate transcript content
+    if (!isValidTranscript(transcript)) {
+      res.status(400).json({
+        error: "Transcript is empty or invalid",
+      });
+      return;
+    }
+
     // Find user by username
     const user = await User.findOne({ username });
     if (!user) {
@@ -252,7 +285,7 @@ export const storeTranscribedData = async (
     // Add transcript to user's transcripts array
     await addTranscriptToUser(user._id, newTranscript._id);
 
-    // Generate summary asynchronously
+    // Generate summary asynchronously only if transcript is valid
     generateAndSaveSummary(newTranscript).catch((error) => {
       console.error("Background summary generation failed:", error);
     });
