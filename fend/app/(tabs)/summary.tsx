@@ -254,12 +254,6 @@ export default function SummaryScreen() {
           </Text>
           
           <View style={styles.cardFooter}>
-            <View style={styles.statsContainer}>
-              <Ionicons name="time-outline" size={16} color="#666" />
-              <Text style={styles.statsText}>
-                {item.duration ? `${Math.floor(item.duration / 60)}m ${Math.floor(item.duration % 60)}s` : "N/A"}
-              </Text>
-            </View>
             <View style={styles.actionContainer}>
               <TouchableOpacity style={styles.actionButton}>
                 <Ionicons name="chevron-forward" size={20} color="#007AFF" />
@@ -498,6 +492,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     fontSize: 14,
     color: "#666",
+    fontWeight: "500",
   },
   statusContainer: {
     flexDirection: "row",
@@ -517,23 +512,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#1A1A1A",
-    marginBottom: 12,
+    marginBottom: 8,
     lineHeight: 22,
   },
   cardFooter: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-end",
     alignItems: "center",
-    marginTop: 8,
-  },
-  statsContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  statsText: {
-    marginLeft: 6,
-    fontSize: 14,
-    color: "#666",
+    marginTop: 12,
   },
   actionContainer: {
     flexDirection: "row",

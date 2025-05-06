@@ -282,27 +282,33 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.welcomeText}>Welcome, {username}!</Text>
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <Ionicons name="log-out-outline" size={24} color="#495057" />
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
+        <View style={styles.headerTop}>
+          <View style={styles.welcomeContainer}>
+            <Text style={styles.greetingText}>Hello,</Text>
+            <Text style={styles.usernameText}>{username}! 👋</Text>
+          </View>
+          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
+            <Ionicons name="log-out-outline" size={24} color="#495057" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.currentTaskContainer}>
         <View style={styles.currentTaskHeader}>
-          <Ionicons name="bookmark" size={24} color="#1877F2" />
-          <Text style={styles.currentTaskTitle}>Current Focus</Text>
+          <View style={styles.taskTitleContainer}>
+            <Ionicons name="bulb-outline" size={24} color="#1877F2" />
+            <Text style={styles.currentTaskTitle}>Current Focus</Text>
+          </View>
           <TouchableOpacity
             style={styles.refreshButton}
             onPress={fetchCurrentTask}
             disabled={isLoadingTask}
           >
             <Ionicons
-              name="refresh"
+              name="refresh-outline"
               size={20}
               color="#1877F2"
-              style={isLoadingTask ? styles.rotating : undefined}
+              style={[isLoadingTask && styles.rotating]}
             />
           </TouchableOpacity>
         </View>
@@ -310,36 +316,49 @@ export default function HomeScreen() {
           {isLoadingTask ? (
             <ActivityIndicator size="small" color="#1877F2" />
           ) : (
-            <Text style={styles.currentTaskText}>
-              {currentTask || "No active task detected"}
-            </Text>
+            <>
+              <Text style={styles.currentTaskText}>
+                {currentTask || "No active task detected"}
+              </Text>
+              <Text style={styles.taskHintText}>
+                Start recording to capture your thoughts and ideas
+              </Text>
+            </>
           )}
         </View>
       </View>
 
-      <View style={styles.recordButtonContainer}>
-        <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-          <TouchableOpacity
-            style={[styles.recordButton, isRecording && styles.recordingButton]}
-            onPress={handleRecordPress}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={isRecording ? "stop" : "mic"}
-              size={60}
-              color="#fff"
-            />
-          </TouchableOpacity>
-        </Animated.View>
+      <View style={styles.recordingSection}>
+        <View style={styles.recordButtonContainer}>
+          <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+            <TouchableOpacity
+              style={[styles.recordButton, isRecording && styles.recordingButton]}
+              onPress={handleRecordPress}
+              activeOpacity={0.8}
+            >
+              <Ionicons
+                name={isRecording ? "stop" : "mic"}
+                size={60}
+                color="#fff"
+              />
+            </TouchableOpacity>
+          </Animated.View>
+          <Text style={styles.recordingStatus}>
+            {isRecording ? "Recording in progress..." : "Tap to start recording"}
+          </Text>
+        </View>
       </View>
 
       {queueItems.length > 0 && (
         <View style={styles.queueContainer}>
-          <Text style={styles.queueTitle}>Upload Queue</Text>
+          <View style={styles.queueHeader}>
+            <Text style={styles.queueTitle}>Upload Queue</Text>
+            <Text style={styles.queueCount}>{queueItems.length} items</Text>
+          </View>
           <FlatList
             data={queueItems}
             renderItem={renderQueueItem}
-            keyExtractor={(item) => item.id}
+            keyExtractor={(item, index) => index.toString()}
             style={styles.queueList}
           />
         </View>
@@ -351,69 +370,139 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F0F2F5", // Slightly different light background
-    paddingHorizontal: 25,
-    paddingVertical: 20,
+    backgroundColor: "#F5F7FA",
   },
   header: {
+    backgroundColor: "#FFF",
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E9F0",
+  },
+  headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 60, // Even more spacing
-    paddingTop: Platform.OS === "android" ? 40 : 20,
   },
-  welcomeText: {
-    fontSize: 28, // Slightly larger
-    fontWeight: "bold", // Bolder
-    color: "#1C1E21", // Darker color
+  welcomeContainer: {
+    flex: 1,
+  },
+  greetingText: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 4,
+  },
+  usernameText: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#1A1A1A",
   },
   signOutButton: {
-    flexDirection: "row", // Align icon and text
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    backgroundColor: "#E4E6EB", // Slightly different grey
-    borderRadius: 20, // More rounded
-  },
-  signOutText: {
-    color: "#4B4F56", // Adjusted text color
-    fontSize: 16,
-    fontWeight: "500",
-    marginLeft: 8, // Space between icon and text
-  },
-  recordButtonContainer: {
-    flex: 1,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F5F7FA",
     justifyContent: "center",
     alignItems: "center",
   },
-  recordButton: {
-    width: 160, // Slightly larger button
-    height: 160,
-    borderRadius: 80, // Keep it circular
-    backgroundColor: "#1877F2", // Facebook blue
-    alignItems: "center",
-    justifyContent: "center",
+  currentTaskContainer: {
+    margin: 20,
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    padding: 20,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: 5,
+      height: 2,
     },
-    shadowOpacity: 0.34,
-    shadowRadius: 6.27,
-    elevation: 10,
-    borderWidth: 3, // Add a subtle border
-    borderColor: "rgba(255, 255, 255, 0.5)", // White border
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  currentTaskHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  taskTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  currentTaskTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#1A1A1A",
+    marginLeft: 8,
+  },
+  currentTaskContent: {
+    backgroundColor: "#F8FAFF",
+    borderRadius: 12,
+    padding: 16,
+    minHeight: 80,
+  },
+  currentTaskText: {
+    fontSize: 16,
+    color: "#1A1A1A",
+    lineHeight: 24,
+    marginBottom: 8,
+  },
+  taskHintText: {
+    fontSize: 14,
+    color: "#666",
+    fontStyle: "italic",
+  },
+  refreshButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F0F8FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  rotating: {
+    opacity: 0.6,
+  },
+  recordingSection: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingBottom: 40,
+  },
+  recordButtonContainer: {
+    alignItems: "center",
+  },
+  recordButton: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: "#1877F2",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
   },
   recordingButton: {
-    backgroundColor: "#E74C3C", // Softer red
-    shadowColor: "#C0392B", // Darker red shadow
-    borderColor: "rgba(255, 255, 255, 0.7)",
+    backgroundColor: "#DC3545",
+  },
+  recordingStatus: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#666",
+    fontWeight: "500",
   },
   queueContainer: {
-    marginTop: 20,
+    margin: 20,
+    backgroundColor: "#FFF",
+    borderRadius: 16,
     padding: 16,
-    backgroundColor: "#fff",
-    borderRadius: 12,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -423,11 +512,21 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  queueHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
   queueTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: 12,
-    color: "#1C1E21",
+    color: "#1A1A1A",
+  },
+  queueCount: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
   },
   queueList: {
     maxHeight: 200,
@@ -438,7 +537,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#E4E6EB",
+    borderBottomColor: "#E5E9F0",
   },
   queueItemContent: {
     flexDirection: "row",
@@ -449,58 +548,18 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     fontSize: 14,
     color: "#4B4F56",
+    flex: 1,
   },
   retryButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    backgroundColor: "#E4E6EB",
+    backgroundColor: "#F0F8FF",
     borderRadius: 16,
     marginLeft: 12,
   },
   retryButtonText: {
-    color: "#4B4F56",
+    color: "#1877F2",
     fontSize: 12,
     fontWeight: "500",
-  },
-  currentTaskContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  currentTaskHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  currentTaskTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1C1E21",
-    marginLeft: 8,
-    flex: 1,
-  },
-  currentTaskContent: {
-    minHeight: 50,
-    justifyContent: "center",
-  },
-  currentTaskText: {
-    fontSize: 16,
-    color: "#4B4F56",
-    lineHeight: 24,
-  },
-  refreshButton: {
-    padding: 8,
-  },
-  rotating: {
-    opacity: 0.5,
   },
 });
