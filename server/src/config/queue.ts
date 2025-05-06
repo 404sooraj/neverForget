@@ -94,7 +94,7 @@ class TranscriptionQueue {
       const outputTxt = `${job.filePath}.txt`;
 
       exec(
-        `whisper ${job.filePath} --model tiny --output_dir uploads`,
+        `whisper ${job.filePath} --model base --output_dir uploads`,
         (error) => {
           if (error) {
             reject(error);
