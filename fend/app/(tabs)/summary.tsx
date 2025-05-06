@@ -12,6 +12,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import { useState, useEffect, useCallback } from "react";
 import { Ionicons } from "@expo/vector-icons";
+import * as Speech from 'expo-speech';
 
 type Transcript = {
   _id: string;
@@ -122,6 +123,23 @@ export default function SummaryScreen() {
   const renderDetailModal = () => {
     if (!selectedTranscript) return null;
 
+    const speakSummary = async (text: string) => {
+      try {
+        const isSpeaking = await Speech.isSpeakingAsync();
+        if (isSpeaking) {
+          await Speech.stop();
+        } else {
+          await Speech.speak(text, {
+            language: 'en',
+            rate: 0.9,
+            pitch: 1.0,
+          });
+        }
+      } catch (error) {
+        console.error('Error with text-to-speech:', error);
+      }
+    };
+
     return (
       <Modal
         animationType="slide"
@@ -155,7 +173,17 @@ export default function SummaryScreen() {
 
           <ScrollView style={styles.modalContent}>
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>One-line Summary</Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>One-line Summary</Text>
+                {selectedTranscript.oneLiner && (
+                  <TouchableOpacity 
+                    style={styles.speakerButton}
+                    onPress={() => speakSummary(selectedTranscript.oneLiner || '')}
+                  >
+                    <Ionicons name="volume-medium-outline" size={24} color="#007AFF" />
+                  </TouchableOpacity>
+                )}
+              </View>
               <View style={styles.sectionContent}>
                 {selectedTranscript.oneLiner ? (
                   <Text style={styles.oneLinerDetail}>
@@ -170,7 +198,17 @@ export default function SummaryScreen() {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Detailed Summary</Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>Detailed Summary</Text>
+                {selectedTranscript.summary && (
+                  <TouchableOpacity 
+                    style={styles.speakerButton}
+                    onPress={() => speakSummary(selectedTranscript.summary || '')}
+                  >
+                    <Ionicons name="volume-medium-outline" size={24} color="#007AFF" />
+                  </TouchableOpacity>
+                )}
+              </View>
               <View style={styles.sectionContent}>
                 {selectedTranscript.summary ? (
                   <Text style={styles.summaryDetail}>
@@ -189,7 +227,17 @@ export default function SummaryScreen() {
             </View>
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Full Transcript</Text>
+              <View style={styles.sectionTitleRow}>
+                <Text style={styles.sectionTitle}>Full Transcript</Text>
+                {selectedTranscript.transcript && (
+                  <TouchableOpacity 
+                    style={styles.speakerButton}
+                    onPress={() => speakSummary(selectedTranscript.transcript)}
+                  >
+                    <Ionicons name="volume-medium-outline" size={24} color="#007AFF" />
+                  </TouchableOpacity>
+                )}
+              </View>
               <View style={styles.sectionContent}>
                 <Text style={styles.transcriptDetail}>
                   {selectedTranscript.transcript}
@@ -438,5 +486,16 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666666",
     textAlign: "center",
+  },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  speakerButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
   },
 });
