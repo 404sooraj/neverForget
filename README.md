@@ -99,7 +99,31 @@ git clone https://github.com/yourusername/neverForget.git
 cd neverForget
 ```
 
-2. Install dependencies:
+2. Install FFmpeg:
+   - **Windows**:
+     ```bash
+     # Using Chocolatey
+     choco install ffmpeg
+     # Or download from https://ffmpeg.org/download.html#build-windows
+     ```
+   - **macOS**:
+     ```bash
+     brew install ffmpeg
+     ```
+   - **Linux**:
+     ```bash
+     # Ubuntu/Debian
+     sudo apt update && sudo apt install ffmpeg
+     # Fedora
+     sudo dnf install ffmpeg
+     ```
+   Verify installation:
+   ```bash
+   ffmpeg -version
+   ```
+   For more details, visit the [FFmpeg Installation Guide](https://ffmpeg.org/download.html)
+
+3. Install dependencies:
 ```bash
 # Frontend setup
 cd fend
@@ -110,7 +134,7 @@ cd ../server
 npm install
 ```
 
-3. Configure environment variables:
+4. Configure environment variables:
 
 Frontend (`fend/.env`):
 ```plaintext
@@ -126,7 +150,7 @@ WHISPER_MODEL=base  # Options: tiny, base, turbo
 PORT=3000
 ```
 
-4. Start the development servers:
+5. Start the development servers:
 
 Backend:
 ```bash
@@ -139,6 +163,16 @@ Frontend:
 cd fend
 npx expo start
 ```
+
+### Whisper Model Configuration
+
+The application uses OpenAI's Whisper model for speech-to-text transcription. You can configure different model sizes based on your needs:
+
+- **tiny**: Fastest, lowest accuracy, smallest model size (~39M parameters)
+- **base**: Good balance of speed and accuracy (~74M parameters)
+- **turbo**: Best accuracy, slower processing (~1.5B parameters)
+
+To change the model, update the `WHISPER_MODEL` in your environment variables. For detailed information about Whisper models and their capabilities, visit the [OpenAI Whisper GitHub Repository](https://github.com/openai/whisper).
 
 ## Usage Guide
 
