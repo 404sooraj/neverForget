@@ -94,8 +94,8 @@ export const transcribeAudio = async (
           // Check if transcription is valid
           if (!isValidTranscript(transcriptionText)) {
             console.log("Transcription result is empty or invalid");
-            fs.unlink(filePath, () => {});
-            fs.unlink(`${filePath}.txt`, () => {});
+            fs.unlink(filePath, () => { });
+            fs.unlink(`${filePath}.txt`, () => { });
             return;
           }
 
@@ -110,8 +110,8 @@ export const transcribeAudio = async (
           await addTranscriptToUser(user._id, newTranscript._id);
 
           // Clean up files
-          fs.unlink(filePath, () => {});
-          fs.unlink(`${filePath}.txt`, () => {});
+          fs.unlink(filePath, () => { });
+          fs.unlink(`${filePath}.txt`, () => { });
 
           // Generate summary asynchronously only if transcript is valid
           generateAndSaveSummary(newTranscript).catch((summaryError) => {
@@ -147,14 +147,22 @@ export const generateSummary = async (
     }
 
     console.log("Generating summary using Gemini API...");
-    const prompt = `Please analyze the following transcript and provide both a detailed summary and a one-line summary. Format your response as a valid JSON object with the following structure:
-{
-  "oneLiner": "A brief one-sentence summary of the key point",
-  "summary": "A more detailed multi-paragraph summary of the transcript"
-}
+    const prompt = `You are a helpful AI assistant for a memory-aid device designed to help people with dementia remember recent conversations. Given the following raw transcript from a live conversation, generate two things:
 
-Transcript:
-${transcript}`;
+    1. A **concise one-line summary** capturing the core message or intention of the conversation. This must be direct, essential, and free of filler.
+    2. A **clear and coherent summary** of the conversation that covers all important details, rephrased for clarity and ease of recall. Do NOT mention that this is a summary—just present the key details in a natural, narrative style.
+    
+    Output your response as a JSON object like this:
+    {
+      "oneLiner": "One sentence that captures the essence of the conversation.",
+      "summary": "A multi-paragraph detailed summary rephrased in simple language, suitable for someone with memory loss to understand easily."
+    }
+    
+    Transcript:
+    """
+    ${transcript}
+    """`;
+
 
     const response = await genAI.models.generateContent({
       model: "gemini-1.5-flash",
@@ -209,7 +217,7 @@ ${transcript}`;
 const generateAndSaveSummary = async (transcriptDoc: any): Promise<void> => {
   try {
     console.log(`Checking transcript ${transcriptDoc._id} for summarization...`);
-    
+
     // Check if transcript is valid
     if (!transcriptDoc.transcript || !isValidTranscript(transcriptDoc.transcript)) {
       console.log(`Transcript ${transcriptDoc._id} is empty or invalid, skipping summarization`);
@@ -415,7 +423,7 @@ export const getTranscriptionStatus = async (
 ): Promise<void> => {
   try {
     const { jobId } = req.params;
-    
+
     const position = transcriptionQueue.getJobPosition(jobId);
     const { queueLength, isProcessing } = transcriptionQueue.getQueueStatus();
 
