@@ -39,11 +39,21 @@ export const upload = multer({
   },
 });
 
-// Helper function to validate transcript text
-const isValidTranscript = (text: string): boolean => {
-  // Remove whitespace and check if there's actual content
+// Helper function to validate transcription text
+const isValidTranscription = (text: string): boolean => {
+  if (!text) return false;
   const cleaned = text.trim();
   return cleaned.length > 0 && !/^[\s\n\r]*$/.test(cleaned);
+};
+
+// Helper function to check if file exists
+const fileExists = async (filePath: string): Promise<boolean> => {
+  try {
+    await fs.promises.access(filePath, fs.constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 export const transcribeAudio = async (
@@ -58,6 +68,8 @@ export const transcribeAudio = async (
 
     const { username } = req.body;
     if (!username) {
+      // Clean up the file if username is missing
+      fs.unlink(req.file.path, () => {});
       res.status(400).json({ error: "Username is required" });
       return;
     }
@@ -65,11 +77,20 @@ export const transcribeAudio = async (
     // Find user by username
     const user = await User.findOne({ username });
     if (!user) {
+      // Clean up the file if user not found
+      fs.unlink(req.file.path, () => {});
       res.status(404).json({ error: "User not found" });
       return;
     }
 
     const filePath = req.file.path;
+
+    // Verify file exists before processing
+    const exists = await fileExists(filePath);
+    if (!exists) {
+      res.status(400).json({ error: "File not found or inaccessible" });
+      return;
+    }
 
     // Add job to queue and get job ID
     const jobId = await transcriptionQueue.addJob(
@@ -88,14 +109,22 @@ export const transcribeAudio = async (
         }
 
         try {
-          // Read the transcription result
-          const transcriptionText = fs.readFileSync(`${filePath}.txt`, 'utf8');
+          // Verify transcription file exists
+          const transcriptionPath = `${filePath}.txt`;
+          const transcriptionExists = await fileExists(transcriptionPath);
+          if (!transcriptionExists) {
+            console.error("Transcription file not found:", transcriptionPath);
+            return;
+          }
 
-          // Check if transcription is valid
-          if (!isValidTranscript(transcriptionText)) {
-            console.log("Transcription result is empty or invalid");
-            fs.unlink(filePath, () => { });
-            fs.unlink(`${filePath}.txt`, () => { });
+          // Read and validate the transcription result
+          const transcriptionText = await fs.promises.readFile(transcriptionPath, 'utf8');
+          
+          if (!isValidTranscription(transcriptionText)) {
+            console.log("Invalid or empty transcription result");
+            // Clean up files for invalid transcription
+            fs.unlink(filePath, () => {});
+            fs.unlink(transcriptionPath, () => {});
             return;
           }
 
@@ -110,16 +139,26 @@ export const transcribeAudio = async (
           await addTranscriptToUser(user._id, newTranscript._id);
 
           // Clean up files
-          fs.unlink(filePath, () => { });
-          fs.unlink(`${filePath}.txt`, () => { });
+          fs.unlink(filePath, () => {});
+          fs.unlink(transcriptionPath, () => {});
 
-          // Generate summary asynchronously only if transcript is valid
-          generateAndSaveSummary(newTranscript).catch((summaryError) => {
-            console.error("Background summary generation failed:", summaryError);
-          });
+          // Only generate summary if transcription is valid
+          if (isValidTranscription(transcriptionText)) {
+            generateAndSaveSummary(newTranscript).catch((summaryError) => {
+              console.error("Background summary generation failed:", summaryError);
+            });
+          } else {
+            // Mark as summarized with error if transcription is invalid
+            newTranscript.isSummarized = true;
+            newTranscript.summaryError = "Invalid or empty transcription";
+            await newTranscript.save();
+          }
 
         } catch (error) {
           console.error("Error processing transcription result:", error);
+          // Clean up files in case of error
+          fs.unlink(filePath, () => {});
+          fs.unlink(`${filePath}.txt`, () => {});
         }
       }
     );
@@ -133,6 +172,10 @@ export const transcribeAudio = async (
 
   } catch (error) {
     console.error("Failed to queue transcription:", error);
+    // Clean up the file in case of error
+    if (req.file) {
+      fs.unlink(req.file.path, () => {});
+    }
     res.status(500).json({ error: "Failed to queue transcription" });
   }
 };
@@ -219,7 +262,7 @@ const generateAndSaveSummary = async (transcriptDoc: any): Promise<void> => {
     console.log(`Checking transcript ${transcriptDoc._id} for summarization...`);
 
     // Check if transcript is valid
-    if (!transcriptDoc.transcript || !isValidTranscript(transcriptDoc.transcript)) {
+    if (!transcriptDoc.transcript || !isValidTranscription(transcriptDoc.transcript)) {
       console.log(`Transcript ${transcriptDoc._id} is empty or invalid, skipping summarization`);
       transcriptDoc.isSummarized = true;
       transcriptDoc.summaryError = "Empty or invalid transcript";
@@ -266,7 +309,7 @@ export const storeTranscribedData = async (
     }
 
     // Validate transcript content
-    if (!isValidTranscript(transcript)) {
+    if (!isValidTranscription(transcript)) {
       res.status(400).json({
         error: "Transcript is empty or invalid",
       });

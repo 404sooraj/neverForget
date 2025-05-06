@@ -5,15 +5,17 @@ import {
   Text,
   TouchableOpacity,
   Alert,
-  Animated, // Import Animated
+  Animated,
+  FlatList,
 } from "react-native";
 import { Audio } from "expo-av";
 import { useState, useRef, useEffect } from "react";
-import { Ionicons } from "@expo/vector-icons"; // Import Ionicons
-import * as Haptics from "expo-haptics"; // Import Haptics
+import { Ionicons } from "@expo/vector-icons";
+import * as Haptics from "expo-haptics";
 import { RECORDING_OPTIONS_PRESET_HIGH_QUALITY } from "@/modules/audio";
 import { useAuth } from "../auth/AuthContext";
 import { router } from "expo-router";
+import { uploadQueue } from "@/modules/uploadQueue";
 
 const RECORDING_INTERVAL_MS = 10 * 1000; // 1 minute for testing, revert to 60 * 1000 for production
 
@@ -23,9 +25,15 @@ export default function HomeScreen() {
   const [isRecording, setIsRecording] = useState(false);
   const { username, signOut } = useAuth();
   const scaleAnim = useRef(new Animated.Value(1)).current;
+  const [queueItems, setQueueItems] = useState<any[]>([]);
 
   useEffect(() => {
+    const unsubscribe = uploadQueue.addListener((queue) => {
+      setQueueItems(queue);
+    });
+
     return () => {
+      unsubscribe();
       // Ensure stopRecording is called which now handles async cleanup
       (async () => {
         await stopRecording();
@@ -33,49 +41,11 @@ export default function HomeScreen() {
     };
   }, []);
 
-  // Refactored: only uploads audio data, assumes URI is valid
-  const uploadAudio = async (uri: string, user: string | null) => {
-    if (!uri || !user) {
-      console.log("No URI or username provided to uploadAudio, skipping.");
-      return;
-    }
-    try {
-      const formData = new FormData();
-      formData.append("audio", {
-        uri,
-        name: `audio_${Date.now()}.m4a`,
-        type: Platform.OS === "ios" ? "audio/x-m4a" : "audio/m4a",
-      } as any);
-      formData.append("username", user);
-
-      console.log(`Uploading segment for user: ${user}`);
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/transcribe`,
-        {
-          method: "POST",
-          body: formData,
-        }
-      );
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || `HTTP error! status: ${response.status}`);
-      }
-      console.log("Segment upload result:", result);
-    } catch (err) {
-      console.error("Failed to upload audio segment:", err);
-      // Alert.alert("Upload Failed", "Could not send audio segment data.");
-      // Decide if this error should stop the recording cycle or just be logged.
-      // For now, it's logged, and the recording cycle attempts to continue.
-    }
-  };
-
   const handleIntervalTick = async () => {
     const recordingToProcess = recordingRef.current;
     if (!recordingToProcess) {
       console.warn("handleIntervalTick called without a current recording.");
-      // This case should ideally be prevented by clearing interval when recording stops.
-      // If it happens, try to stop everything to be safe.
-      await stopRecording(); 
+      await stopRecording();
       return;
     }
 
@@ -85,39 +55,39 @@ export default function HomeScreen() {
     try {
       console.log("Interval tick: Stopping and unloading current segment...");
       await recordingToProcess.stopAndUnloadAsync();
-      audioUri = recordingToProcess.getURI(); // Get URI after successful stop/unload
+      audioUri = recordingToProcess.getURI();
       stoppedAndUnloadedSuccessfully = true;
       console.log("Segment stopped, unloaded. URI:", audioUri);
     } catch (err) {
       console.error("Critical error stopping/unloading segment:", err);
-      recordingRef.current = null; // Clear ref to problematic recording
-      await stopRecording(); // Full stop, clears interval, updates UI
+      recordingRef.current = null;
+      await stopRecording();
       Alert.alert("Recording Error", "Failed to stop previous segment. Recording halted.");
-      return; // Do not proceed to start a new recording
+      return;
     }
 
-    // If stop/unload was successful, proceed to upload
-    if (stoppedAndUnloadedSuccessfully && audioUri) {
-      await uploadAudio(audioUri, username);
+    // If stop/unload was successful, add to upload queue
+    if (stoppedAndUnloadedSuccessfully && audioUri && username) {
+      await uploadQueue.addToQueue(audioUri, username);
     }
 
     // Old recording is processed. Clear ref before creating a new one.
     recordingRef.current = null;
 
+    // Add a delay before starting the next recording segment
+    await new Promise(resolve => setTimeout(resolve, 300)); // 300ms delay
+
     // Attempt to start a new recording segment
     try {
       console.log("Preparing new recording segment...");
       const newRecording = new Audio.Recording();
-      await newRecording.prepareToRecordAsync(
-        RECORDING_OPTIONS_PRESET_HIGH_QUALITY
-      );
+      await newRecording.prepareToRecordAsync(RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
       await newRecording.startAsync();
-      recordingRef.current = newRecording; // Store new recording in ref
+      recordingRef.current = newRecording;
       console.log("New segment recording started.");
     } catch (err) {
       console.error("Failed to start new recording segment:", err);
-      // recordingRef.current is either null or the failed newRecording instance
-      await stopRecording(); // Full stop, clears interval, updates UI
+      await stopRecording();
       Alert.alert("Recording Error", "Failed to start new segment. Recording halted.");
     }
   };
@@ -166,11 +136,10 @@ export default function HomeScreen() {
     }
 
     const lastRecording = recordingRef.current;
-    recordingRef.current = null; // Clear ref immediately
+    recordingRef.current = null;
 
-    // Update UI and animation regardless of whether a recording was active
     if (isRecording) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
     setIsRecording(false);
     Animated.spring(scaleAnim, { toValue: 1, friction: 3, useNativeDriver: true }).start();
@@ -181,22 +150,21 @@ export default function HomeScreen() {
         await lastRecording.stopAndUnloadAsync();
         const uri = lastRecording.getURI();
         console.log("Final segment stopped, URI:", uri);
-        if (uri) {
-          await uploadAudio(uri, username); // Upload the final segment
+        if (uri && username) {
+          await uploadQueue.addToQueue(uri, username);
         }
       } catch (err) {
         console.error("Error processing final audio segment:", err);
-        // Alert.alert("Final Segment Error", "Could not process the final audio segment.");
       }
     } else {
-        console.log("No active recording to process for final segment.");
+      console.log("No active recording to process for final segment.");
     }
     console.log("Recording process fully stopped.");
   }
 
   const handleSignOut = async () => {
-    await stopRecording(); // Stop recording first
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); // Haptic feedback
+    await stopRecording();
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     await signOut();
     router.replace("/auth");
   };
@@ -209,34 +177,77 @@ export default function HomeScreen() {
     }
   };
 
+  const renderQueueItem = ({ item }: { item: any }) => (
+    <View style={styles.queueItem}>
+      <View style={styles.queueItemContent}>
+        <Ionicons 
+          name={
+            item.status === 'completed' ? 'checkmark-circle' :
+            item.status === 'failed' ? 'alert-circle' :
+            item.status === 'processing' ? 'reload-circle' : 'time'
+          } 
+          size={24} 
+          color={
+            item.status === 'completed' ? '#4CAF50' :
+            item.status === 'failed' ? '#F44336' :
+            item.status === 'processing' ? '#2196F3' : '#FFC107'
+          }
+        />
+        <Text style={styles.queueItemText}>
+          {item.status === 'completed' ? 'Upload complete' :
+           item.status === 'failed' ? `Upload failed (${item.retries} attempts)` :
+           item.status === 'processing' ? 'Uploading...' :
+           'Waiting to upload'}
+        </Text>
+      </View>
+      {item.status === 'failed' && (
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={() => uploadQueue.clearFailedUploads()}
+        >
+          <Text style={styles.retryButtonText}>Clear</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.welcomeText}>Welcome, {username}!</Text>
         <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          {/* Icon added */}
           <Ionicons name="log-out-outline" size={24} color="#495057" />
           <Text style={styles.signOutText}>Sign Out</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.recordButtonContainer}>
-        {/* Wrap TouchableOpacity in Animated.View */}
         <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
           <TouchableOpacity
             style={[styles.recordButton, isRecording && styles.recordingButton]}
-            onPress={handleRecordPress} // Use combined handler
-            activeOpacity={0.8} // Slightly more feedback
+            onPress={handleRecordPress}
+            activeOpacity={0.8}
           >
-            {/* Conditional Icon */}
             <Ionicons
               name={isRecording ? "stop" : "mic"}
-              size={60} // Larger icon
+              size={60}
               color="#fff"
             />
           </TouchableOpacity>
         </Animated.View>
       </View>
+
+      {queueItems.length > 0 && (
+        <View style={styles.queueContainer}>
+          <Text style={styles.queueTitle}>Upload Queue</Text>
+          <FlatList
+            data={queueItems}
+            renderItem={renderQueueItem}
+            keyExtractor={(item) => item.id}
+            style={styles.queueList}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -302,5 +313,57 @@ const styles = StyleSheet.create({
     shadowColor: "#C0392B", // Darker red shadow
     borderColor: "rgba(255, 255, 255, 0.7)",
   },
-  // Removed recordButtonText as it's replaced by icons
+  queueContainer: {
+    marginTop: 20,
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  queueTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+    color: '#1C1E21',
+  },
+  queueList: {
+    maxHeight: 200,
+  },
+  queueItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E4E6EB',
+  },
+  queueItemContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  queueItemText: {
+    marginLeft: 12,
+    fontSize: 14,
+    color: '#4B4F56',
+  },
+  retryButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#E4E6EB',
+    borderRadius: 16,
+    marginLeft: 12,
+  },
+  retryButtonText: {
+    color: '#4B4F56',
+    fontSize: 12,
+    fontWeight: '500',
+  },
 });
