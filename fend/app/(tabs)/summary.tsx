@@ -218,16 +218,19 @@ export default function SummaryScreen() {
     item: Transcript;
     index: number;
   }) => {
-    const formattedDate = (() => {
+    const formattedDateTime = (() => {
       try {
         const date = new Date(item.createdAt || item.timestamp);
         if (isNaN(date.getTime())) {
-          return "Invalid date";
+          return { date: "Invalid date", time: "" };
         }
-        return format(date, "MMMM d, yyyy");
+        return {
+          date: format(date, "MMMM d, yyyy"),
+          time: format(date, "h:mm a"),
+        };
       } catch (error) {
         console.error("Error formatting date:", error);
-        return "Invalid date";
+        return { date: "Invalid date", time: "" };
       }
     })();
 
@@ -243,7 +246,11 @@ export default function SummaryScreen() {
           <View style={styles.cardHeader}>
             <View style={styles.dateContainer}>
               <Ionicons name="calendar-outline" size={16} color="#007AFF" />
-              <Text style={styles.dateText}>{formattedDate}</Text>
+              <Text style={styles.dateText}>{formattedDateTime.date}</Text>
+              <View style={styles.timeContainer}>
+                <Ionicons name="time-outline" size={14} color="#666" />
+                <Text style={styles.timeText}>{formattedDateTime.time}</Text>
+              </View>
             </View>
             <View style={styles.statusContainer}>
               <View
@@ -496,12 +503,23 @@ const styles = StyleSheet.create({
   dateContainer: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
   dateText: {
-    marginLeft: 6,
     fontSize: 14,
-    color: "#666",
+    color: "#1A1A1A",
+    marginLeft: 6,
     fontWeight: "500",
+  },
+  timeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 12,
+  },
+  timeText: {
+    fontSize: 13,
+    color: "#666",
+    marginLeft: 4,
   },
   statusContainer: {
     flexDirection: "row",

@@ -8,6 +8,7 @@ import {
   getAllTranscripts,
   getTranscriptionStatus,
   getCurrentTask,
+  getQueueStatus,
 } from "../controllers/transcribe.controllers";
 // import { authMiddleware } from "../middleware/auth.middleware";
 
@@ -38,5 +39,8 @@ router.get("/transcription-status/:jobId", getTranscriptionStatus);
 
 // Get current task
 router.get("/current-task/:username", getCurrentTask);
+
+// Get overall queue status
+router.get("/queue-status", getQueueStatus);
 
 export default router;

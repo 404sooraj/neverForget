@@ -28,7 +28,11 @@ const storage = multer.diskStorage({
     cb(null, "uploads/");
   },
   filename: function (req, file, cb) {
-    cb(null, Date.now() + path.extname(file.originalname));
+    // Use current timestamp and include the original filename to maintain file extension and improve traceability
+    const timestamp = Date.now();
+    const originalName = file.originalname.replace(/[^a-zA-Z0-9.]/g, "_"); // Sanitize filename
+    const filename = `${timestamp}_${originalName}`;
+    cb(null, filename);
   },
 });
 
@@ -618,25 +622,53 @@ export const getTranscriptionStatus = async (
   try {
     const { jobId } = req.params;
 
-    const position = transcriptionQueue.getJobPosition(jobId);
-    const { queueLength, isProcessing } = transcriptionQueue.getQueueStatus();
-
-    if (position === -1) {
-      // Job not found in queue (either completed or failed)
-      res.json({
-        status: "not_found",
-        message: "Job not found in queue (may have completed or failed)",
-      });
+    if (!jobId) {
+      res.status(400).json({ error: "Job ID is required" });
       return;
     }
 
+    // Get position in queue and queue status
+    const position = transcriptionQueue.getJobPosition(jobId);
+    const { queueLength, activeJobs } = transcriptionQueue.getQueueStatus();
+
+    if (position === -1) {
+      // Check if job is no longer in queue
+      res.json({
+        jobId,
+        position: -1,
+        queueLength,
+        status: "completed_or_unknown",
+      });
+    } else {
+      res.json({
+        jobId,
+        position,
+        queueLength,
+        status: position === 0 && activeJobs > 0 ? "processing" : "queued",
+      });
+    }
+  } catch (error) {
+    console.error("Error retrieving job status:", error);
+    res.status(500).json({ error: "Failed to get job status" });
+  }
+};
+
+// Add new endpoint to get overall queue status
+export const getQueueStatus = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const queueStatus = transcriptionQueue.getQueueStatus();
+
+    // Return the queue status
     res.json({
-      status: position === 0 && isProcessing ? "processing" : "queued",
-      position: position + 1,
-      queueLength,
+      ...queueStatus,
+      usesGPU: transcriptionQueue.getGpuFailures() === 0,
+      timestamp: new Date().toISOString(),
     });
   } catch (error) {
-    console.error("Error checking transcription status:", error);
-    res.status(500).json({ error: "Failed to check transcription status" });
+    console.error("Error retrieving queue status:", error);
+    res.status(500).json({ error: "Failed to get queue status" });
   }
 };
