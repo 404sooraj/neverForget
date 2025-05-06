@@ -39,11 +39,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_API_URL}/users/${username}`
       );
-      const data = await response.json();
-      console.log(data);
+      
       if (!response.ok) {
-        throw new Error("User not found");
+        const errorText = await response.text();
+        let errorMessage;
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.message || 'Failed to sign in';
+        } catch (e) {
+          errorMessage = 'Failed to sign in';
+        }
+        throw new Error(errorMessage);
       }
+
+      const data = await response.json();
       await AsyncStorage.setItem("username", username);
       setUsername(username);
     } catch (error) {
@@ -61,9 +70,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ username }),
       });
 
+      const responseText = await response.text();
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (e) {
+        throw new Error('Invalid server response');
+      }
+
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || "Username already exists");
+        throw new Error(data.message || "Failed to sign up");
       }
 
       await AsyncStorage.setItem("username", username);

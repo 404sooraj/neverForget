@@ -6,7 +6,7 @@ import multer from "multer";
 import { Transcript } from "../modals/transcript.modals";
 import User from "../modals/user.modals";
 import { addTranscriptToUser } from "./user.controller";
-import { GoogleGenAI } from "@google/genai";
+import { transcriptionQueue } from "../config/queue";
 
 // Extend Express Request type to include user
 declare global {
@@ -45,7 +45,7 @@ export const transcribeAudio = async (req: Request, res: Response): Promise<void
       return;
     }
 
-    const { username } = req.body;
+    const { username, mode } = req.body;
     if (!username) {
       res.status(400).json({ error: "Username is required" });
       return;
@@ -58,58 +58,97 @@ export const transcribeAudio = async (req: Request, res: Response): Promise<void
     }
 
     const filePath = req.file.path;
-    const pythonScriptPath = path.join(__dirname, "..", "service", "transcribe.py");
 
-    const child = spawn("python", [pythonScriptPath, filePath]);
+    if (mode === "immediate") {
+      // === Immediate mode using Python script ===
+      const pythonScriptPath = path.join(__dirname, "..", "service", "transcribe.py");
+      const child = spawn("python", [pythonScriptPath, filePath]);
 
-    let output = "";
-    let errorOutput = "";
+      let output = "";
+      let errorOutput = "";
 
-    child.stdout.on("data", (data) => {
-      output += data.toString();
-    });
+      child.stdout.on("data", (data) => (output += data.toString()));
+      child.stderr.on("data", (data) => {
+        errorOutput += data.toString();
+        console.error("Python script error:", data.toString());
+      });
 
-    child.stderr.on("data", (data) => {
-      errorOutput += data.toString();
-      console.error("Python script error:", data.toString());
-    });
+      child.on("close", async (code) => {
+        fs.unlinkSync(filePath);
 
-    child.on("close", async (code) => {
-      fs.unlinkSync(filePath); // Always clean up
+        if (code !== 0) {
+          console.error("Whisper script failed:", errorOutput);
+          res.status(500).json({ error: "Transcription failed" });
+          return;
+        }
 
-      if (code !== 0) {
-        console.error("Whisper Python script failed:", errorOutput);
-        res.status(500).json({ error: "Transcription failed" });
-        return;
-      }
+        try {
+          const result = JSON.parse(output);
+          const text = result.text;
 
-      try {
-        const result = JSON.parse(output);
-        const text = result.text;
+          const transcript = new Transcript({
+            userId: user._id,
+            audioFile: req.file.originalname,
+            transcript: text,
+          });
 
-        const transcript = new Transcript({
-          userId: user._id,
-          audioFile: req.file?.originalname,
-          transcript: text,
-        });
+          await transcript.save();
+          await addTranscriptToUser(user._id, transcript._id);
+          generateAndSaveSummary(transcript).catch(console.error);
 
-        await transcript.save();
-        await addTranscriptToUser(user._id, transcript._id);
+          res.json({ transcript: text });
+        } catch (err) {
+          console.error("Parsing/storing error:", err);
+          res.status(500).json({ error: "Failed to handle transcription" });
+        }
+      });
 
-        // Asynchronously generate summary
-        generateAndSaveSummary(transcript).catch(console.error);
+    } else {
+      // === Queued mode using job system ===
+      const jobId = await transcriptionQueue.addJob(
+        filePath,
+        username,
+        async (error) => {
+          if (error) {
+            console.error("Job transcription error:", error);
+            fs.unlink(filePath, () => {});
+            return;
+          }
 
-        res.json({ transcript: text });
-      } catch (err) {
-        console.error("Error parsing Whisper output or storing:", err);
-        res.status(500).json({ error: "Failed to handle transcription" });
-      }
-    });
+          try {
+            const transcriptionText = fs.readFileSync(`${filePath}.txt`, "utf8");
+
+            const newTranscript = new Transcript({
+              userId: user._id,
+              audioFile: req.file.originalname,
+              transcript: transcriptionText,
+            });
+
+            await newTranscript.save();
+            await addTranscriptToUser(user._id, newTranscript._id);
+
+            fs.unlink(filePath, () => {});
+            fs.unlink(`${filePath}.txt`, () => {});
+
+            generateAndSaveSummary(newTranscript).catch(console.error);
+          } catch (error) {
+            console.error("Queue processing failed:", error);
+          }
+        }
+      );
+
+      res.status(202).json({
+        message: "Transcription job queued",
+        jobId,
+        status: "queued",
+      });
+    }
   } catch (error) {
-    console.error("Transcription process error:", error);
+    console.error("Transcription error:", error);
     res.status(500).json({ error: "Transcription process failed" });
   }
 };
+
 
 // Function to generate summary using Gemini
 export const generateSummary = async (
@@ -260,5 +299,36 @@ export const processPendingTranscripts = async (): Promise<void> => {
     console.log("Finished processing pending transcripts");
   } catch (error) {
     console.error("Error in processPendingTranscripts:", error);
+  }
+};
+
+// Add new endpoint to check transcription status
+export const getTranscriptionStatus = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { jobId } = req.params;
+    
+    const position = transcriptionQueue.getJobPosition(jobId);
+    const { queueLength, isProcessing } = transcriptionQueue.getQueueStatus();
+
+    if (position === -1) {
+      // Job not found in queue (either completed or failed)
+      res.json({
+        status: "not_found",
+        message: "Job not found in queue (may have completed or failed)",
+      });
+      return;
+    }
+
+    res.json({
+      status: position === 0 && isProcessing ? "processing" : "queued",
+      position: position + 1,
+      queueLength,
+    });
+  } catch (error) {
+    console.error("Error checking transcription status:", error);
+    res.status(500).json({ error: "Failed to check transcription status" });
   }
 };
