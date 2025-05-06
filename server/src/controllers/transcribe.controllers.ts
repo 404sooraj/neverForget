@@ -7,6 +7,7 @@ import User from "../modals/user.modals";
 import multer from "multer";
 import path from "path";
 import { addTranscriptToUser } from "./user.controller";
+import { transcriptionQueue } from "../config/queue";
 
 // Extend Express Request type to include user
 declare global {
@@ -62,63 +63,62 @@ export const transcribeAudio = async (
     }
 
     const filePath = req.file.path;
-    const outputTxt = `${filePath}.txt`;
 
-    console.log(`Processing audio file: ${req.file.originalname}`);
-    exec(
-      `whisper ${filePath} --model base --output_dir uploads`,
-      async (err) => {
-        if (err) {
-          console.error("Whisper failed:", err);
-          res.status(500).json({ error: "Transcription failed" });
+    // Add job to queue and get job ID
+    const jobId = await transcriptionQueue.addJob(
+      filePath,
+      username,
+      async (error) => {
+        if (error) {
+          console.error("Transcription failed:", error);
+          // Clean up the file if transcription failed
+          fs.unlink(filePath, (unlinkError) => {
+            if (unlinkError) {
+              console.error("Error deleting failed transcription file:", unlinkError);
+            }
+          });
           return;
         }
 
-        fs.readFile(outputTxt, "utf8", async (err, data) => {
-          if (err) {
-            console.error("Reading transcript failed:", err);
-            res.status(500).json({ error: "Failed to read transcript" });
-            return;
-          }
+        try {
+          // Read the transcription result
+          const transcriptionText = fs.readFileSync(`${filePath}.txt`, 'utf8');
 
-          try {
-            console.log(
-              "Audio transcription successful, storing in database..."
-            );
-            // Store transcript in MongoDB
-            const transcript = new Transcript({
-              userId: user._id,
-              audioFile: req.file!.originalname,
-              transcript: data,
-            });
+          // Store transcript in MongoDB
+          const newTranscript = new Transcript({
+            userId: user._id,
+            audioFile: req.file?.originalname,
+            transcript: transcriptionText,
+          });
 
-            await transcript.save();
-            console.log(`Transcript saved with ID: ${transcript._id}`);
+          await newTranscript.save();
+          await addTranscriptToUser(user._id, newTranscript._id);
 
-            // Add transcript to user's transcripts array
-            await addTranscriptToUser(user._id, transcript._id);
+          // Clean up files
+          fs.unlink(filePath, () => {});
+          fs.unlink(`${filePath}.txt`, () => {});
 
-            // Generate summary asynchronously
-            generateAndSaveSummary(transcript).catch((error) => {
-              console.error("Background summary generation failed:", error);
-            });
+          // Generate summary asynchronously
+          generateAndSaveSummary(newTranscript).catch((summaryError) => {
+            console.error("Background summary generation failed:", summaryError);
+          });
 
-            // Clean up files
-            fs.unlinkSync(filePath);
-            fs.unlinkSync(outputTxt);
-            console.log("Temporary files cleaned up");
-
-            res.json({ transcript: data });
-          } catch (error) {
-            console.error("Database storage failed:", error);
-            res.status(500).json({ error: "Failed to store transcript" });
-          }
-        });
+        } catch (error) {
+          console.error("Error processing transcription result:", error);
+        }
       }
     );
+
+    // Return immediately with job ID
+    res.status(202).json({
+      message: "Transcription job queued",
+      jobId,
+      status: "queued",
+    });
+
   } catch (error) {
-    console.error("Transcription process failed:", error);
-    res.status(500).json({ error: "Transcription process failed" });
+    console.error("Failed to queue transcription:", error);
+    res.status(500).json({ error: "Failed to queue transcription" });
   }
 };
 
@@ -372,5 +372,36 @@ export const processPendingTranscripts = async (): Promise<void> => {
     console.log("Finished processing pending transcripts");
   } catch (error) {
     console.error("Error in processPendingTranscripts:", error);
+  }
+};
+
+// Add new endpoint to check transcription status
+export const getTranscriptionStatus = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const { jobId } = req.params;
+    
+    const position = transcriptionQueue.getJobPosition(jobId);
+    const { queueLength, isProcessing } = transcriptionQueue.getQueueStatus();
+
+    if (position === -1) {
+      // Job not found in queue (either completed or failed)
+      res.json({
+        status: "not_found",
+        message: "Job not found in queue (may have completed or failed)",
+      });
+      return;
+    }
+
+    res.json({
+      status: position === 0 && isProcessing ? "processing" : "queued",
+      position: position + 1,
+      queueLength,
+    });
+  } catch (error) {
+    console.error("Error checking transcription status:", error);
+    res.status(500).json({ error: "Failed to check transcription status" });
   }
 };
