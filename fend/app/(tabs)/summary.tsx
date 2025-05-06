@@ -15,7 +15,7 @@ import {
 import { useAuth } from "../auth/AuthContext";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import * as Speech from 'expo-speech';
+import * as Speech from "expo-speech";
 import { BlurView } from "expo-blur";
 import { format } from "date-fns";
 
@@ -55,7 +55,9 @@ export default function SummaryScreen() {
       if (response.ok) {
         setTranscripts(data || []);
         if (selectedTranscript) {
-          const updatedTranscript = data.find((t: Transcript) => t._id === selectedTranscript._id);
+          const updatedTranscript = data.find(
+            (t: Transcript) => t._id === selectedTranscript._id
+          );
           if (updatedTranscript) {
             setSelectedTranscript(updatedTranscript);
           }
@@ -71,7 +73,7 @@ export default function SummaryScreen() {
 
   useEffect(() => {
     fetchTranscripts();
-  }, [fetchTranscripts]);
+  }, []);
 
   // Add animation effect when transcripts are loaded
   useEffect(() => {
@@ -119,26 +121,28 @@ export default function SummaryScreen() {
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_API_URL}/transcripts/${selectedTranscript._id}`,
         {
-          method: 'DELETE',
+          method: "DELETE",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ username }),
         }
       );
 
       if (response.ok) {
-        setTranscripts(prev => prev.filter(t => t._id !== selectedTranscript._id));
+        setTranscripts((prev) =>
+          prev.filter((t) => t._id !== selectedTranscript._id)
+        );
         setDeleteConfirmVisible(false);
         setModalVisible(false);
         setSelectedTranscript(null);
       } else {
         const errorData = await response.json();
-        Alert.alert('Error', errorData.error || 'Failed to delete transcript');
+        Alert.alert("Error", errorData.error || "Failed to delete transcript");
       }
     } catch (error) {
-      console.error('Error deleting transcript:', error);
-      Alert.alert('Error', 'Failed to delete transcript');
+      console.error("Error deleting transcript:", error);
+      Alert.alert("Error", "Failed to delete transcript");
     }
   };
 
@@ -148,7 +152,7 @@ export default function SummaryScreen() {
 
   const handleRefreshSummary = async () => {
     if (!selectedTranscript) return;
-    
+
     try {
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_API_URL}/transcripts/${username}`
@@ -156,17 +160,21 @@ export default function SummaryScreen() {
       const data = await response.json();
 
       if (response.ok) {
-        const updatedTranscript = data.find((t: Transcript) => t._id === selectedTranscript._id);
+        const updatedTranscript = data.find(
+          (t: Transcript) => t._id === selectedTranscript._id
+        );
         if (updatedTranscript) {
           setSelectedTranscript(updatedTranscript);
-          setTranscripts(prev => 
-            prev.map(t => t._id === updatedTranscript._id ? updatedTranscript : t)
+          setTranscripts((prev) =>
+            prev.map((t) =>
+              t._id === updatedTranscript._id ? updatedTranscript : t
+            )
           );
         }
       }
     } catch (error) {
       console.error("Error refreshing summary:", error);
-      Alert.alert('Error', 'Failed to refresh summary');
+      Alert.alert("Error", "Failed to refresh summary");
     }
   };
 
@@ -175,7 +183,7 @@ export default function SummaryScreen() {
 
     try {
       // Prepare the share content
-      let shareContent = '';
+      let shareContent = "";
 
       // Add one-liner if available
       if (selectedTranscript.oneLiner) {
@@ -195,15 +203,21 @@ export default function SummaryScreen() {
 
       await Share.share({
         message: shareContent,
-        title: 'Never Forget - Memory Summary',
+        title: "Never Forget - Memory Summary",
       });
     } catch (error) {
-      console.error('Error sharing:', error);
-      Alert.alert('Error', 'Failed to share summary');
+      console.error("Error sharing:", error);
+      Alert.alert("Error", "Failed to share summary");
     }
   };
 
-  const renderTranscriptItem = ({ item, index }: { item: Transcript; index: number }) => {
+  const renderTranscriptItem = ({
+    item,
+    index,
+  }: {
+    item: Transcript;
+    index: number;
+  }) => {
     const formattedDate = (() => {
       try {
         const date = new Date(item.createdAt || item.timestamp);
@@ -232,15 +246,24 @@ export default function SummaryScreen() {
               <Text style={styles.dateText}>{formattedDate}</Text>
             </View>
             <View style={styles.statusContainer}>
-              <View style={[styles.statusDot, { backgroundColor: item.summary ? "#4CAF50" : "#FFC107" }]} />
-              <Text style={styles.statusText}>{item.summary ? "Completed" : "Processing"}</Text>
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: item.summary ? "#4CAF50" : "#FFC107" },
+                ]}
+              />
+              <Text style={styles.statusText}>
+                {item.summary ? "Completed" : "Processing"}
+              </Text>
             </View>
           </View>
-          
+
           <Text style={styles.oneLiner} numberOfLines={2}>
-            {item.oneLiner || item.summary?.substring(0, 100) || "Processing your memory..."}
+            {item.oneLiner ||
+              item.summary?.substring(0, 100) ||
+              "Processing your memory..."}
           </Text>
-          
+
           <View style={styles.cardFooter}>
             <View style={styles.actionContainer}>
               <TouchableOpacity style={styles.actionButton}>
@@ -263,13 +286,13 @@ export default function SummaryScreen() {
           await Speech.stop();
         } else {
           await Speech.speak(text, {
-            language: 'en',
+            language: "en",
             rate: 0.9,
             pitch: 1.0,
           });
         }
       } catch (error) {
-        console.error('Error with text-to-speech:', error);
+        console.error("Error with text-to-speech:", error);
       }
     };
 
@@ -283,10 +306,7 @@ export default function SummaryScreen() {
         <BlurView intensity={90} style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={closeModal}
-              >
+              <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
                 <Ionicons name="close" size={24} color="#666" />
               </TouchableOpacity>
               <View style={styles.modalActions}>
@@ -357,7 +377,8 @@ export default function SummaryScreen() {
             <Text style={styles.confirmTitle}>Delete Memory</Text>
           </View>
           <Text style={styles.confirmText}>
-            Are you sure you want to delete this memory? This action cannot be undone.
+            Are you sure you want to delete this memory? This action cannot be
+            undone.
           </Text>
           <View style={styles.confirmButtons}>
             <TouchableOpacity
