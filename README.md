@@ -5,6 +5,7 @@ NeverForget is an assistive technology application designed specifically for ind
 ## Purpose & Vision
 
 NeverForget aims to:
+
 - Help individuals with memory difficulties maintain independence
 - Provide cognitive support for people with ADHD
 - Assist dementia patients in preserving and accessing their memories
@@ -14,6 +15,7 @@ NeverForget aims to:
 ## Features
 
 ### Core Functionality
+
 - **Quick Capture System**
   - 10-second default recording duration (expandable up to 10 minutes)
   - One-tap recording activation
@@ -21,7 +23,9 @@ NeverForget aims to:
   - Real-time processing status indicators
 
 ### Smart Processing
+
 - **Advanced Transcription**
+
   - OpenAI Whisper integration with multiple model options:
     - Whisper Tiny: Fast, lightweight processing
     - Whisper Base: Balanced performance
@@ -36,7 +40,9 @@ NeverForget aims to:
   - Memory categorization
 
 ### Accessibility-First Design
+
 - **User Interface**
+
   - High-contrast visual elements
   - Large, readable text
   - Simple, intuitive navigation
@@ -52,6 +58,7 @@ NeverForget aims to:
 ## Future Roadmap
 
 ### Dedicated Hardware Development
+
 - Custom device with specialized features:
   - Advanced background noise cancellation
   - Offline processing capabilities
@@ -59,6 +66,7 @@ NeverForget aims to:
   - Durable, senior-friendly design
 
 ### Local Processing
+
 - On-device transcription
 - Local AI model implementation
 - Enhanced privacy and security
@@ -67,6 +75,7 @@ NeverForget aims to:
 ## Tech Stack
 
 ### Frontend (Mobile App)
+
 - React Native / Expo
 - TypeScript
 - React Navigation
@@ -74,6 +83,7 @@ NeverForget aims to:
 - Native animations and gestures
 
 ### Backend (Server)
+
 - Node.js & Express
 - MongoDB for data storage
 - OpenAI Whisper API integration
@@ -83,6 +93,7 @@ NeverForget aims to:
 ## Getting Started
 
 ### Prerequisites
+
 - Node.js (v16 or higher)
 - npm or yarn
 - Expo CLI (`npm install -g expo-cli`)
@@ -100,14 +111,22 @@ To install [OpenAI Whisper](https://github.com/openai/whisper) and use the `whis
 pip install -U openai-whisper
 ```
 
+- To get the whisper to run through cuda cores/ gpu use below site to download proper stuff https://pytorch.org/get-started/locally/
+- below is the command we used
+
+```bash
+pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+```
 
 1. Clone the repository:
+
 ```bash
 git clone https://github.com/yourusername/neverForget.git
 cd neverForget
 ```
 
 2. Install FFmpeg:
+
    - **Windows**:
      ```bash
      # Using Chocolatey
@@ -125,13 +144,16 @@ cd neverForget
      # Fedora
      sudo dnf install ffmpeg
      ```
-   Verify installation:
+     Verify installation:
+
    ```bash
    ffmpeg -version
    ```
+
    For more details, visit the [FFmpeg Installation Guide](https://ffmpeg.org/download.html)
 
 3. Install dependencies:
+
 ```bash
 # Frontend setup
 cd fend
@@ -145,11 +167,13 @@ npm install
 4. Configure environment variables:
 
 Frontend (`fend/.env`):
+
 ```plaintext
 EXPO_PUBLIC_API_URL=your_backend_url
 ```
 
 Backend (`server/.env`):
+
 ```plaintext
 MONGODB_URI=your_mongodb_uri
 OPENAI_API_KEY=your_openai_api_key
@@ -161,12 +185,14 @@ PORT=3000
 5. Start the development servers:
 
 Backend:
+
 ```bash
 cd server
 npm run dev
 ```
 
 Frontend:
+
 ```bash
 cd fend
 npx expo start
@@ -185,12 +211,14 @@ To change the model, update the `WHISPER_MODEL` in your environment variables. F
 ## Usage Guide
 
 ### Recording Memories
+
 1. Open the app and tap the microphone button
 2. Speak clearly for up to 10 seconds (default)
 3. Recording automatically stops and processes
 4. View the transcription and summary in the memories list
 
 ### Managing Recordings
+
 1. Access the Summary tab to view all memories
 2. Tap any memory to:
    - View full transcription
@@ -199,14 +227,15 @@ To change the model, update the `WHISPER_MODEL` in your environment variables. F
    - Delete if needed
 
 ### Settings Configuration
+
 1. Adjust recording duration (10 sec - 10 min)
 2. Select preferred Whisper model:
    - Tiny: Fastest, lower accuracy
    - Base: Balanced performance
    - Turbo: Highest accuracy, slower processing
 
-
 ## Support
 
 For support:
+
 - Open an issue in the GitHub repository
