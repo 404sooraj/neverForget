@@ -15,182 +15,183 @@ import { RECORDING_OPTIONS_PRESET_HIGH_QUALITY } from "@/modules/audio";
 import { useAuth } from "../auth/AuthContext";
 import { router } from "expo-router";
 
-const RECORDING_INTERVAL_MS = 60 * 1000; // 1 minute
+const RECORDING_INTERVAL_MS = 10 * 1000; // 1 minute for testing, revert to 60 * 1000 for production
 
 export default function HomeScreen() {
-  // Use useRef for recording object and interval ID to avoid stale closures
   const recordingRef = useRef<Audio.Recording | null>(null);
-  // Fix: Change NodeJS.Timeout to number for React Native's setInterval return type
   const intervalRef = useRef<number | null>(null);
-  const [isRecording, setIsRecording] = useState(false); // UI state
+  const [isRecording, setIsRecording] = useState(false);
   const { username, signOut } = useAuth();
-  const scaleAnim = useRef(new Animated.Value(1)).current; // Animation value for button scale
+  const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  // Cleanup function for unmounting
   useEffect(() => {
     return () => {
-      stopRecording(); // Ensure recording stops and interval is cleared if component unmounts
+      // Ensure stopRecording is called which now handles async cleanup
+      (async () => {
+        await stopRecording();
+      })();
     };
   }, []);
 
-  // Function to send a recording segment
-  const sendAudioSegment = async (recordingToStop: Audio.Recording) => {
+  // Refactored: only uploads audio data, assumes URI is valid
+  const uploadAudio = async (uri: string, user: string | null) => {
+    if (!uri || !user) {
+      console.log("No URI or username provided to uploadAudio, skipping.");
+      return;
+    }
     try {
-      await recordingToStop.stopAndUnloadAsync();
-      const uri = recordingToStop.getURI();
-      console.log("Segment stored at:", uri);
+      const formData = new FormData();
+      formData.append("audio", {
+        uri,
+        name: `audio_${Date.now()}.m4a`,
+        type: Platform.OS === "ios" ? "audio/x-m4a" : "audio/m4a",
+      } as any);
+      formData.append("username", user);
 
-      if (uri && username) {
-        const formData = new FormData();
-        formData.append("audio", {
-          uri,
-          name: `audio_${Date.now()}.m4a`, // Unique name for each segment
-          type: Platform.OS === "ios" ? "audio/x-m4a" : "audio/m4a",
-        } as any);
-        formData.append("username", username);
-
-        console.log(`Sending segment for user: ${username}`);
-        const response = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL}/transcribe`,
-          {
-            method: "POST",
-            body: formData,
-            // Optional: Add headers if needed, e.g., for content type if server requires it
-            // headers: {
-            //   'Content-Type': 'multipart/form-data',
-            // },
-          }
-        );
-
-        const result = await response.json();
-        if (!response.ok) {
-          throw new Error(
-            result.error || `HTTP error! status: ${response.status}`
-          );
+      console.log(`Uploading segment for user: ${user}`);
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/transcribe`,
+        {
+          method: "POST",
+          body: formData,
         }
-        console.log("Segment upload result:", result);
+      );
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || `HTTP error! status: ${response.status}`);
       }
+      console.log("Segment upload result:", result);
     } catch (err) {
-      console.error("Failed to stop or upload segment", err);
-      // Optionally show an alert to the user
-      // Alert.alert("Upload Failed", "Could not send audio segment.");
+      console.error("Failed to upload audio segment:", err);
+      // Alert.alert("Upload Failed", "Could not send audio segment data.");
+      // Decide if this error should stop the recording cycle or just be logged.
+      // For now, it's logged, and the recording cycle attempts to continue.
     }
   };
 
-  // Function to handle the interval tick
   const handleIntervalTick = async () => {
-    const currentRecording = recordingRef.current;
-    if (!currentRecording) return;
+    const recordingToProcess = recordingRef.current;
+    if (!recordingToProcess) {
+      console.warn("handleIntervalTick called without a current recording.");
+      // This case should ideally be prevented by clearing interval when recording stops.
+      // If it happens, try to stop everything to be safe.
+      await stopRecording(); 
+      return;
+    }
 
-    console.log("Interval tick: Stopping and sending segment...");
-    await sendAudioSegment(currentRecording);
+    let stoppedAndUnloadedSuccessfully = false;
+    let audioUri: string | null = null;
 
-    // Start new recording immediately
     try {
+      console.log("Interval tick: Stopping and unloading current segment...");
+      await recordingToProcess.stopAndUnloadAsync();
+      audioUri = recordingToProcess.getURI(); // Get URI after successful stop/unload
+      stoppedAndUnloadedSuccessfully = true;
+      console.log("Segment stopped, unloaded. URI:", audioUri);
+    } catch (err) {
+      console.error("Critical error stopping/unloading segment:", err);
+      recordingRef.current = null; // Clear ref to problematic recording
+      await stopRecording(); // Full stop, clears interval, updates UI
+      Alert.alert("Recording Error", "Failed to stop previous segment. Recording halted.");
+      return; // Do not proceed to start a new recording
+    }
+
+    // If stop/unload was successful, proceed to upload
+    if (stoppedAndUnloadedSuccessfully && audioUri) {
+      await uploadAudio(audioUri, username);
+    }
+
+    // Old recording is processed. Clear ref before creating a new one.
+    recordingRef.current = null;
+
+    // Attempt to start a new recording segment
+    try {
+      console.log("Preparing new recording segment...");
       const newRecording = new Audio.Recording();
       await newRecording.prepareToRecordAsync(
         RECORDING_OPTIONS_PRESET_HIGH_QUALITY
       );
       await newRecording.startAsync();
-      recordingRef.current = newRecording; // Update the ref with the new recording object
+      recordingRef.current = newRecording; // Store new recording in ref
       console.log("New segment recording started.");
     } catch (err) {
-      console.error("Failed to start new recording segment", err);
-      // Stop the process if restarting fails
-      stopRecording();
-      Alert.alert("Recording Error", "Failed to continue recording.");
+      console.error("Failed to start new recording segment:", err);
+      // recordingRef.current is either null or the failed newRecording instance
+      await stopRecording(); // Full stop, clears interval, updates UI
+      Alert.alert("Recording Error", "Failed to start new segment. Recording halted.");
     }
   };
 
   async function startRecording() {
-    if (isRecording) return; // Prevent starting multiple times
+    if (isRecording) return;
 
     try {
       const permission = await Audio.requestPermissionsAsync();
       if (!permission.granted) {
-        Alert.alert(
-          "Permission Required",
-          "Permission to access microphone is required!"
-        );
+        Alert.alert("Permission Required", "Microphone permission is required!");
         return;
       }
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-      });
+      await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
 
       console.log("Starting initial recording...");
       const newRecording = new Audio.Recording();
-      await newRecording.prepareToRecordAsync(
-        RECORDING_OPTIONS_PRESET_HIGH_QUALITY
-      );
+      await newRecording.prepareToRecordAsync(RECORDING_OPTIONS_PRESET_HIGH_QUALITY);
       await newRecording.startAsync();
       recordingRef.current = newRecording;
       setIsRecording(true);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic feedback
-      // Start scale animation
-      Animated.spring(scaleAnim, {
-        toValue: 1.1, // Scale up slightly
-        friction: 3,
-        useNativeDriver: true,
-      }).start();
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      Animated.spring(scaleAnim, { toValue: 1.1, friction: 3, useNativeDriver: true }).start();
       console.log("Initial recording started.");
 
-      // Clear any existing interval before starting a new one
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      // Start the interval timer
-      intervalRef.current = setInterval(
-        // Assigns a number ID
-        handleIntervalTick,
-        RECORDING_INTERVAL_MS
-      );
+      if (intervalRef.current !== null) clearInterval(intervalRef.current);
+      intervalRef.current = setInterval(handleIntervalTick, RECORDING_INTERVAL_MS);
       console.log(`Interval set for ${RECORDING_INTERVAL_MS / 1000} seconds.`);
     } catch (err) {
-      console.error("Failed to start recording", err);
-      setIsRecording(false); // Reset state on error
+      console.error("Failed to start recording:", err);
+      setIsRecording(false);
       recordingRef.current = null;
-      // Fix: Check against null explicitly before clearing
-      if (intervalRef.current !== null) clearInterval(intervalRef.current); // Clear interval on error
+      if (intervalRef.current !== null) clearInterval(intervalRef.current);
       intervalRef.current = null;
+      Animated.spring(scaleAnim, { toValue: 1, friction: 3, useNativeDriver: true }).start();
       Alert.alert("Recording Error", "Could not start recording.");
     }
   }
 
   async function stopRecording() {
-    if (!isRecording && !recordingRef.current) {
-      console.log("Recording already stopped.");
-      return; // Already stopped
-    }
-
-    console.log("Stopping recording...");
-    // Clear the interval timer
-    // Fix: Check against null explicitly before clearing
+    console.log("Stop recording requested...");
     if (intervalRef.current !== null) {
-      clearInterval(intervalRef.current); // clearInterval works with number IDs
+      clearInterval(intervalRef.current);
       intervalRef.current = null;
       console.log("Interval cleared.");
     }
 
     const lastRecording = recordingRef.current;
-    recordingRef.current = null; // Clear the ref immediately
-    setIsRecording(false); // Update UI state
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic feedback
-    // Reset scale animation
-    Animated.spring(scaleAnim, {
-      toValue: 1, // Scale back to normal
-      friction: 3,
-      useNativeDriver: true,
-    }).start();
+    recordingRef.current = null; // Clear ref immediately
+
+    // Update UI and animation regardless of whether a recording was active
+    if (isRecording) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setIsRecording(false);
+    Animated.spring(scaleAnim, { toValue: 1, friction: 3, useNativeDriver: true }).start();
 
     if (lastRecording) {
-      // Send the final segment
-      console.log("Sending final segment...");
-      await sendAudioSegment(lastRecording);
+      console.log("Processing final segment...");
+      try {
+        await lastRecording.stopAndUnloadAsync();
+        const uri = lastRecording.getURI();
+        console.log("Final segment stopped, URI:", uri);
+        if (uri) {
+          await uploadAudio(uri, username); // Upload the final segment
+        }
+      } catch (err) {
+        console.error("Error processing final audio segment:", err);
+        // Alert.alert("Final Segment Error", "Could not process the final audio segment.");
+      }
+    } else {
+        console.log("No active recording to process for final segment.");
     }
-    console.log("Recording stopped completely.");
+    console.log("Recording process fully stopped.");
   }
 
   const handleSignOut = async () => {
@@ -252,7 +253,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 60, // Even more spacing
-    paddingTop: Platform.OS === 'android' ? 40 : 20,
+    paddingTop: Platform.OS === "android" ? 40 : 20,
   },
   welcomeText: {
     fontSize: 28, // Slightly larger
@@ -260,11 +261,11 @@ const styles = StyleSheet.create({
     color: "#1C1E21", // Darker color
   },
   signOutButton: {
-    flexDirection: 'row', // Align icon and text
-    alignItems: 'center',
+    flexDirection: "row", // Align icon and text
+    alignItems: "center",
     paddingVertical: 10,
     paddingHorizontal: 15,
-    backgroundColor: '#E4E6EB', // Slightly different grey
+    backgroundColor: "#E4E6EB", // Slightly different grey
     borderRadius: 20, // More rounded
   },
   signOutText: {
@@ -275,8 +276,8 @@ const styles = StyleSheet.create({
   },
   recordButtonContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   recordButton: {
     width: 160, // Slightly larger button
@@ -284,7 +285,7 @@ const styles = StyleSheet.create({
     borderRadius: 80, // Keep it circular
     backgroundColor: "#1877F2", // Facebook blue
     alignItems: "center",
-    justifyContent: 'center',
+    justifyContent: "center",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
