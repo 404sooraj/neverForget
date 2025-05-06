@@ -45,20 +45,14 @@ export default function SummaryScreen() {
 
   const fetchTranscripts = useCallback(async () => {
     try {
-      if (!username) {
-        console.log("No username available");
-        return;
-      }
+      if (!username) return;
 
-      console.log("Fetching transcripts for username:", username);
       const response = await fetch(
         `${process.env.EXPO_PUBLIC_API_URL}/transcripts/${username}`
       );
       const data = await response.json();
-      console.log("API Response:", data);
 
       if (response.ok) {
-        console.log("Setting transcripts:", data);
         setTranscripts(data || []);
         if (selectedTranscript) {
           const updatedTranscript = data.find((t: Transcript) => t._id === selectedTranscript._id);
@@ -66,8 +60,6 @@ export default function SummaryScreen() {
             setSelectedTranscript(updatedTranscript);
           }
         }
-      } else {
-        console.error("API error:", data);
       }
     } catch (error) {
       console.error("Error fetching transcripts:", error);
@@ -78,13 +70,11 @@ export default function SummaryScreen() {
   }, [username, selectedTranscript]);
 
   useEffect(() => {
-    console.log("Initial fetch triggered");
     fetchTranscripts();
   }, [fetchTranscripts]);
 
   // Add animation effect when transcripts are loaded
   useEffect(() => {
-    console.log("Current transcripts:", transcripts);
     if (transcripts.length > 0) {
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -214,12 +204,10 @@ export default function SummaryScreen() {
   };
 
   const renderTranscriptItem = ({ item, index }: { item: Transcript; index: number }) => {
-    console.log("Rendering transcript item:", item);
     const formattedDate = (() => {
       try {
         const date = new Date(item.createdAt || item.timestamp);
         if (isNaN(date.getTime())) {
-          console.warn("Invalid date for transcript:", item._id);
           return "Invalid date";
         }
         return format(date, "MMMM d, yyyy");
