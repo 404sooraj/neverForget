@@ -205,32 +205,8 @@ To change the model, update the `WHISPER_MODEL` in your environment variables. F
    - Base: Balanced performance
    - Turbo: Highest accuracy, slower processing
 
-## Contributing
-
-We welcome contributions that improve accessibility and functionality for our users:
-
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AccessibilityImprovement`)
-3. Commit your changes (`git commit -m 'Add some AccessibilityImprovement'`)
-4. Push to the branch (`git push origin feature/AccessibilityImprovement`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Support
 
 For support:
 - Open an issue in the GitHub repository
-- Contact our support team at support@neverforget.app
-- Join our community Discord server for discussions
-
-## Security & Privacy
-
-We take the privacy of our users, especially those with medical conditions, very seriously:
-- All data is encrypted in transit and at rest
-- Strict access controls and authentication
-- Regular security audits
-- HIPAA compliance measures
-- Local processing options for sensitive data
