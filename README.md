@@ -216,6 +216,7 @@ To change the model, update the `WHISPER_MODEL` in your environment variables. F
 2. Speak clearly for up to 10 seconds (default)
 3. Recording automatically stops and processes
 4. View the transcription and summary in the memories list
+5. Audio files are automatically deleted from the device after successful upload to ensure privacy and save storage space
 
 ### Managing Recordings
 

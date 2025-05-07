@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system";
 
 interface QueueItem {
   id: string;
@@ -99,6 +100,16 @@ class UploadQueue {
       // Success
       this.queue.shift();
       item.status = "completed";
+      
+      // Delete the audio file after successful upload
+      try {
+        await this.deleteAudioFile(item.uri);
+        console.log(`Successfully deleted audio file: ${item.uri}`);
+      } catch (deleteError) {
+        console.error(`Failed to delete audio file ${item.uri}:`, deleteError);
+        // Continue even if deletion fails - this is non-critical
+      }
+      
       await this.saveQueue();
     } catch (error) {
       console.error(`Upload failed for ${item.id}:`, error);
@@ -113,6 +124,16 @@ class UploadQueue {
         // Max retries reached
         this.queue.shift();
         item.status = "failed";
+        
+        // Delete the failed audio file to free up space
+        try {
+          await this.deleteAudioFile(item.uri);
+          console.log(`Deleted failed audio file after max retries: ${item.uri}`);
+        } catch (deleteError) {
+          console.error(`Failed to delete failed audio file ${item.uri}:`, deleteError);
+          // Continue even if deletion fails
+        }
+        
         await this.saveQueue();
       }
     } finally {
@@ -122,6 +143,26 @@ class UploadQueue {
       setTimeout(() => {
         this.processQueue();
       }, 1000);
+    }
+  }
+
+  private async deleteAudioFile(uri: string): Promise<void> {
+    if (!uri) {
+      console.warn("Attempted to delete file with empty URI");
+      return;
+    }
+    
+    try {
+      const fileInfo = await FileSystem.getInfoAsync(uri);
+      
+      if (fileInfo.exists) {
+        await FileSystem.deleteAsync(uri, { idempotent: true });
+      } else {
+        console.log(`File does not exist: ${uri}`);
+      }
+    } catch (error) {
+      console.error(`Error deleting file ${uri}:`, error);
+      throw error;
     }
   }
 
@@ -195,7 +236,21 @@ class UploadQueue {
     return this.queue.find((item) => item.id === id);
   }
 
-  public clearFailedUploads() {
+  public async clearFailedUploads() {
+    // Get failed items to delete their files
+    const failedItems = this.queue.filter((item) => item.status === "failed");
+    
+    // Delete audio files for failed uploads
+    for (const item of failedItems) {
+      try {
+        await this.deleteAudioFile(item.uri);
+        console.log(`Deleted audio file from failed upload: ${item.uri}`);
+      } catch (error) {
+        console.error(`Failed to delete audio file from failed upload ${item.uri}:`, error);
+      }
+    }
+    
+    // Remove failed items from queue
     this.queue = this.queue.filter((item) => item.status !== "failed");
     this.saveQueue();
   }
