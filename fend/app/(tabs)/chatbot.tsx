@@ -1,3 +1,4 @@
+import { API_URL } from "../../services/config";
 import React, { useState, useRef, useEffect } from "react";
 import {
   View,
@@ -138,19 +139,16 @@ export default function ChatbotScreen() {
 
     try {
       // Send request to the memory chatbot endpoint
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/chatbot/memory`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            username,
-            query: userMessage.content,
-          }),
-        }
-      );
+      const response = await fetch(`${API_URL}/chatbot/memory`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          username,
+          query: userMessage.content,
+        }),
+      });
 
       const data = await response.json();
 

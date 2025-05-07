@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { API_URL } from "../services/config";
 interface QueueItem {
   id: string;
   uri: string;
@@ -151,17 +152,14 @@ class UploadQueue {
         console.log(
           `Uploading file attempt ${attempt + 1}/${maxRetries + 1}...`
         );
-        const response = await fetch(
-          `${process.env.EXPO_PUBLIC_API_URL}/transcribe`,
-          {
-            method: "POST",
-            body: formData,
-            headers: {
-              Accept: "application/json",
-              Connection: "keep-alive",
-            },
-          }
-        );
+        const response = await fetch(`${API_URL}/transcribe`, {
+          method: "POST",
+          body: formData,
+          headers: {
+            Accept: "application/json",
+            Connection: "keep-alive",
+          },
+        });
 
         if (!response.ok) {
           const errorText = await response.text();

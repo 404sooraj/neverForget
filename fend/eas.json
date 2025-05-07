@@ -1,0 +1,25 @@
+{
+  "cli": {
+    "version": ">= 5.9.1"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal"
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "YOUR_PRODUCTION_API_URL_HERE"
+      }
+    }
+  }
+}

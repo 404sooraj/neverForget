@@ -1,3 +1,4 @@
+import { API_URL } from "../../services/config";
 import React from "react";
 import {
   ScrollView,
@@ -72,7 +73,7 @@ export default function HomeScreen() {
     setIsLoadingQueue(true);
     try {
       // Log the API URL for debugging
-      const apiUrl = `${process.env.EXPO_PUBLIC_API_URL}/queue-status`;
+      const apiUrl = `${API_URL}/queue-status`;
       // console.log("Fetching from URL:", apiUrl);
 
       const response = await fetch(apiUrl);
@@ -96,9 +97,7 @@ export default function HomeScreen() {
 
     setIsLoadingTask(true);
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/current-task/${username}`
-      );
+      const response = await fetch(`${API_URL}/current-task/${username}`);
       if (!response.ok) throw new Error("Failed to fetch current task");
 
       const data = await response.json();

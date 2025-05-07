@@ -1,10 +1,17 @@
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+} from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-
+import { API_URL } from "../../services/config";
 type UserProfile = {
   username: string;
   createdAt: string;
@@ -25,9 +32,7 @@ export default function ProfileScreen() {
     try {
       if (!username) return;
 
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/users/${username}`
-      );
+      const response = await fetch(`${API_URL}/users/${username}`);
       const data = await response.json();
 
       if (response.ok && data.user) {
@@ -41,24 +46,20 @@ export default function ProfileScreen() {
   };
 
   const handleSignOut = async () => {
-    Alert.alert(
-      "Sign Out",
-      "Are you sure you want to sign out?",
-      [
-        {
-          text: "Cancel",
-          style: "cancel"
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Sign Out",
+        onPress: async () => {
+          await signOut();
+          router.replace("/auth");
         },
-        {
-          text: "Sign Out",
-          onPress: async () => {
-            await signOut();
-            router.replace("/auth");
-          },
-          style: "destructive"
-        }
-      ]
-    );
+        style: "destructive",
+      },
+    ]);
   };
 
   if (loading) {
@@ -139,7 +140,11 @@ export default function ProfileScreen() {
         <View style={styles.card}>
           <TouchableOpacity style={styles.settingRow}>
             <View style={styles.settingIconContainer}>
-              <Ionicons name="notifications-outline" size={20} color="#007AFF" />
+              <Ionicons
+                name="notifications-outline"
+                size={20}
+                color="#007AFF"
+              />
             </View>
             <View style={styles.settingContent}>
               <Text style={styles.settingLabel}>Notifications</Text>
@@ -167,10 +172,7 @@ export default function ProfileScreen() {
         </View>
       </View>
 
-      <TouchableOpacity 
-        style={styles.signOutButton}
-        onPress={handleSignOut}
-      >
+      <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
         <Ionicons name="log-out-outline" size={20} color="#FF3B30" />
         <Text style={styles.signOutText}>Sign Out</Text>
       </TouchableOpacity>

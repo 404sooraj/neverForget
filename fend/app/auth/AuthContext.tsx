@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { API_URL } from "../../services/config";
 type AuthContextType = {
   username: string | null;
   isLoading: boolean;
@@ -36,18 +37,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (username: string) => {
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/users/${username}`
-      );
-      
+      const response = await fetch(`${API_URL}/users/${username}`);
+
       if (!response.ok) {
         const errorText = await response.text();
         let errorMessage;
         try {
           const errorData = JSON.parse(errorText);
-          errorMessage = errorData.message || 'Failed to sign in';
+          errorMessage = errorData.message || "Failed to sign in";
         } catch (e) {
-          errorMessage = 'Failed to sign in';
+          errorMessage = "Failed to sign in";
         }
         throw new Error(errorMessage);
       }
@@ -62,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = async (username: string) => {
     try {
-      const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/users`, {
+      const response = await fetch(`${API_URL}/users`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -75,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         data = JSON.parse(responseText);
       } catch (e) {
-        throw new Error('Invalid server response');
+        throw new Error("Invalid server response");
       }
 
       if (!response.ok) {

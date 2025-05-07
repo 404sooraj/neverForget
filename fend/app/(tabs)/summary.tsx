@@ -19,6 +19,7 @@ import * as Speech from "expo-speech";
 import { BlurView } from "expo-blur";
 import { format } from "date-fns";
 
+import { API_URL } from "../../services/config";
 type Transcript = {
   _id: string;
   transcript: string;
@@ -47,9 +48,7 @@ export default function SummaryScreen() {
     try {
       if (!username) return;
 
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/transcripts/${username}`
-      );
+      const response = await fetch(`${API_URL}/transcripts/${username}`);
       const data = await response.json();
 
       if (response.ok) {
@@ -119,7 +118,7 @@ export default function SummaryScreen() {
 
     try {
       const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/transcripts/${selectedTranscript._id}`,
+        `${API_URL}/transcripts/${selectedTranscript._id}`,
         {
           method: "DELETE",
           headers: {
@@ -154,9 +153,7 @@ export default function SummaryScreen() {
     if (!selectedTranscript) return;
 
     try {
-      const response = await fetch(
-        `${process.env.EXPO_PUBLIC_API_URL}/transcripts/${username}`
-      );
+      const response = await fetch(`${API_URL}/transcripts/${username}`);
       const data = await response.json();
 
       if (response.ok) {
