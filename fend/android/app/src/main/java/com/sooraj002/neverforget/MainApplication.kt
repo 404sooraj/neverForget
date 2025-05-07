@@ -1,4 +1,4 @@
-package com.anonymous.client
+package com.sooraj002.neverforget
 
 import android.app.Application
 import android.content.res.Configuration

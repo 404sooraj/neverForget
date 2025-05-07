@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "client",
-    "slug": "client",
+    "name": "NeverForget",
+    "slug": "neverforget",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "client",
+    "scheme": "neverforget",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -42,10 +42,7 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
-      "eas": {
-        "projectId": "b7ddc9fe-e450-4809-bc93-2ce07c74b3d3"
-      }
+      "router": {}
     }
   }
 }

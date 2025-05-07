@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.anonymous.client'
+    namespace 'com.sooraj002.neverforget'
     defaultConfig {
-        applicationId 'com.anonymous.client'
+        applicationId 'com.sooraj002.neverforget'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

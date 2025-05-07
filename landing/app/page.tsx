@@ -1,0 +1,312 @@
+import Link from "next/link"
+import Image from "next/image"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Mic, Brain, Share2, Search, Settings, Smartphone } from "lucide-react"
+
+export default function LandingPage() {
+  return (
+    <div className="flex min-h-screen flex-col">
+      {/* Hero Section */}
+      <section className="w-full py-12 md:py-24 lg:py-32 bg-purple-50 dark:bg-purple-950">
+        <div className="container px-4 md:px-6">
+          <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_500px]">
+            <div className="flex flex-col justify-center space-y-4">
+              <div className="space-y-2">
+                <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none">NeverForget</h1>
+                <p className="text-purple-600 dark:text-purple-300 text-xl md:text-2xl">
+                  Assistive technology for memory challenges
+                </p>
+                <p className="max-w-[600px] text-gray-500 md:text-xl dark:text-gray-400">
+                  Capture thoughts, memories, and important information through quick voice recordings, automatically
+                  transcribed and summarized for easy future reference.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 min-[400px]:flex-row">
+                <Button className="bg-purple-600 hover:bg-purple-700">Download App</Button>
+                <Button variant="outline">Learn More</Button>
+              </div>
+            </div>
+            <div className="flex items-center justify-center">
+              <div className="relative h-[450px] w-[250px] overflow-hidden rounded-xl border-8 border-gray-800 bg-gray-800 shadow-xl">
+                <div className="absolute inset-0 bg-purple-100 dark:bg-purple-900">
+                  <Image
+                    src="/placeholder.svg?height=450&width=250"
+                    width={250}
+                    height={450}
+                    alt="NeverForget App Screenshot"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Purpose Section */}
+      <section className="w-full py-12 md:py-24 lg:py-32">
+        <div className="container px-4 md:px-6">
+          <div className="flex flex-col items-center justify-center space-y-4 text-center">
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Purpose & Vision</h2>
+              <p className="max-w-[900px] text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-gray-400">
+                NeverForget aims to help individuals with memory difficulties maintain independence, provide cognitive
+                support for people with ADHD, and assist dementia patients in preserving and accessing their memories.
+              </p>
+            </div>
+          </div>
+          <div className="mx-auto grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3 mt-8">
+            <Card>
+              <CardHeader className="flex flex-row items-center gap-4 pb-2">
+                <Brain className="h-8 w-8 text-purple-600" />
+                <CardTitle>Memory Support</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Help individuals with memory difficulties maintain independence and reduce anxiety about forgetting
+                  important information.
+                </CardDescription>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center gap-4 pb-2">
+                <Mic className="h-8 w-8 text-purple-600" />
+                <CardTitle>Quick Capture</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Seamlessly capture thoughts and memories through quick voice recordings with just one tap.
+                </CardDescription>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center gap-4 pb-2">
+                <Share2 className="h-8 w-8 text-purple-600" />
+                <CardTitle>Caregiver Sharing</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Share memories and important information with caregivers to provide better support and care.
+                </CardDescription>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="w-full py-12 md:py-24 lg:py-32 bg-gray-50 dark:bg-gray-900">
+        <div className="container px-4 md:px-6">
+          <div className="flex flex-col items-center justify-center space-y-4 text-center">
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Core Features</h2>
+              <p className="max-w-[900px] text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-gray-400">
+                NeverForget combines cutting-edge AI technology with an accessible interface to provide comprehensive
+                memory support.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mt-8">
+            <div className="flex flex-col items-center space-y-2 rounded-lg border p-4">
+              <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900">
+                <Mic className="h-6 w-6 text-purple-600 dark:text-purple-300" />
+              </div>
+              <h3 className="text-xl font-bold">Quick Capture System</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                10-second default recording duration (expandable up to 10 minutes) with one-tap activation and automatic
+                background upload.
+              </p>
+            </div>
+            <div className="flex flex-col items-center space-y-2 rounded-lg border p-4">
+              <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900">
+                <Brain className="h-6 w-6 text-purple-600 dark:text-purple-300" />
+              </div>
+              <h3 className="text-xl font-bold">AI-Powered Summarization</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                Google Gemini integration for concise summaries with key points extraction and context preservation.
+              </p>
+            </div>
+            <div className="flex flex-col items-center space-y-2 rounded-lg border p-4">
+              <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900">
+                <Search className="h-6 w-6 text-purple-600 dark:text-purple-300" />
+              </div>
+              <h3 className="text-xl font-bold">Advanced Transcription</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                OpenAI Whisper integration with multiple model options and multi-language support.
+              </p>
+            </div>
+            <div className="flex flex-col items-center space-y-2 rounded-lg border p-4">
+              <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900">
+                <Settings className="h-6 w-6 text-purple-600 dark:text-purple-300" />
+              </div>
+              <h3 className="text-xl font-bold">Memory Management</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                Categorized memory storage with easy search and retrieval, sharing functionality, and backup
+                capabilities.
+              </p>
+            </div>
+            <div className="flex flex-col items-center space-y-2 rounded-lg border p-4">
+              <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900">
+                <Smartphone className="h-6 w-6 text-purple-600 dark:text-purple-300" />
+              </div>
+              <h3 className="text-xl font-bold">Accessibility-First Design</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                High-contrast visual elements, large readable text, and simple intuitive navigation designed for users
+                with cognitive challenges.
+              </p>
+            </div>
+            <div className="flex flex-col items-center space-y-2 rounded-lg border p-4">
+              <div className="rounded-full bg-purple-100 p-2 dark:bg-purple-900">
+                <Share2 className="h-6 w-6 text-purple-600 dark:text-purple-300" />
+              </div>
+              <h3 className="text-xl font-bold">Sharing Capabilities</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center">
+                Easily share memories and important information with caregivers and family members.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Tech Stack Section */}
+      <section className="w-full py-12 md:py-24 lg:py-32">
+        <div className="container px-4 md:px-6">
+          <div className="flex flex-col items-center justify-center space-y-4 text-center">
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Powered By</h2>
+              <p className="max-w-[900px] text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-gray-400">
+                NeverForget leverages cutting-edge technology to provide the best experience.
+              </p>
+            </div>
+          </div>
+          <div className="mx-auto grid max-w-5xl grid-cols-2 gap-6 md:grid-cols-4 lg:grid-cols-4 items-center justify-center mt-8">
+            <div className="flex flex-col items-center justify-center space-y-2 p-4">
+              <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center dark:bg-gray-800">
+                <Image
+                  src="/placeholder.svg?height=64&width=64"
+                  width={64}
+                  height={64}
+                  alt="React Native"
+                  className="h-8 w-8"
+                />
+              </div>
+              <p className="text-center font-medium">React Native</p>
+            </div>
+            <div className="flex flex-col items-center justify-center space-y-2 p-4">
+              <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center dark:bg-gray-800">
+                <Image
+                  src="/placeholder.svg?height=64&width=64"
+                  width={64}
+                  height={64}
+                  alt="Node.js"
+                  className="h-8 w-8"
+                />
+              </div>
+              <p className="text-center font-medium">Node.js</p>
+            </div>
+            <div className="flex flex-col items-center justify-center space-y-2 p-4">
+              <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center dark:bg-gray-800">
+                <Image
+                  src="/placeholder.svg?height=64&width=64"
+                  width={64}
+                  height={64}
+                  alt="OpenAI Whisper"
+                  className="h-8 w-8"
+                />
+              </div>
+              <p className="text-center font-medium">OpenAI Whisper</p>
+            </div>
+            <div className="flex flex-col items-center justify-center space-y-2 p-4">
+              <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center dark:bg-gray-800">
+                <Image
+                  src="/placeholder.svg?height=64&width=64"
+                  width={64}
+                  height={64}
+                  alt="Google Gemini"
+                  className="h-8 w-8"
+                />
+              </div>
+              <p className="text-center font-medium">Google Gemini</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Getting Started Section */}
+      <section className="w-full py-12 md:py-24 lg:py-32 bg-purple-50 dark:bg-purple-950">
+        <div className="container px-4 md:px-6">
+          <div className="grid gap-6 lg:grid-cols-2 lg:gap-12">
+            <div className="flex flex-col justify-center space-y-4">
+              <div className="space-y-2">
+                <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Get Started Today</h2>
+                <p className="max-w-[600px] text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-gray-400">
+                  Download NeverForget and start capturing your important memories and thoughts with ease.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 min-[400px]:flex-row">
+                <Button className="bg-purple-600 hover:bg-purple-700">Download for Android</Button>
+                <Button variant="outline">View Documentation</Button>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <h3 className="text-xl font-bold">Simple Setup</h3>
+              <ol className="space-y-2">
+                <li className="flex items-start">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-sm font-medium text-purple-600 dark:bg-purple-900 dark:text-purple-300">
+                    1
+                  </div>
+                  <p className="ml-2 text-gray-500 dark:text-gray-400">Download the app from Google Play Store</p>
+                </li>
+                <li className="flex items-start">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-sm font-medium text-purple-600 dark:bg-purple-900 dark:text-purple-300">
+                    2
+                  </div>
+                  <p className="ml-2 text-gray-500 dark:text-gray-400">Create an account or sign in</p>
+                </li>
+                <li className="flex items-start">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-sm font-medium text-purple-600 dark:bg-purple-900 dark:text-purple-300">
+                    3
+                  </div>
+                  <p className="ml-2 text-gray-500 dark:text-gray-400">
+                    Grant necessary permissions for microphone access
+                  </p>
+                </li>
+                <li className="flex items-start">
+                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-sm font-medium text-purple-600 dark:bg-purple-900 dark:text-purple-300">
+                    4
+                  </div>
+                  <p className="ml-2 text-gray-500 dark:text-gray-400">Start recording your first memory</p>
+                </li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="w-full py-6 md:py-12 bg-gray-100 dark:bg-gray-800">
+        <div className="container px-4 md:px-6">
+          <div className="flex flex-col items-center justify-center space-y-4 text-center">
+            <div className="space-y-2">
+              <h2 className="text-2xl font-bold">NeverForget</h2>
+              <p className="text-gray-500 dark:text-gray-400">Assistive technology for memory challenges</p>
+            </div>
+            <div className="flex space-x-4">
+              <Link href="#" className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50">
+                Privacy Policy
+              </Link>
+              <Link href="#" className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50">
+                Terms of Service
+              </Link>
+              <Link href="#" className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50">
+                Contact
+              </Link>
+            </div>
+            <div className="text-sm text-gray-500 dark:text-gray-400">© 2025 NeverForget. All rights reserved.</div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  )
+}

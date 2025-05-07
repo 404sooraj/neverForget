@@ -2,12 +2,12 @@ import "dotenv/config";
 
 export default {
   expo: {
-    name: "client",
-    slug: "client",
+    name: "NeverForget",
+    slug: "neverforget",
     version: "1.0.0",
     orientation: "portrait",
     icon: "./assets/images/icon.png",
-    scheme: "client",
+    scheme: "neverforget",
     userInterfaceStyle: "automatic",
     newArchEnabled: true,
     ios: {
@@ -20,6 +20,7 @@ export default {
         backgroundColor: "#ffffff",
       },
       edgeToEdgeEnabled: true,
+      package: "com.sooraj002.neverforget"
     },
     web: {
       bundler: "metro",
@@ -44,8 +45,9 @@ export default {
     extra: {
       apiUrl: process.env.EXPO_PUBLIC_API_URL,
       eas: {
-        projectId: "ec4e091c-b8fa-4e70-bc93-6b05649eb289", // <-- Add this line
+        projectId: "889dbfd5-d84c-43cf-90a9-d18517c0d1be"
       },
     },
+    owner: "sooraj002", // Add the owner field with your Expo username
   },
 };
