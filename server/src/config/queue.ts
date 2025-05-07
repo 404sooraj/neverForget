@@ -128,7 +128,7 @@ class TranscriptionQueue {
       );
 
       exec(
-        `whisper ${job.filePath} --model medium ${deviceFlag} --output_dir uploads --output_format txt`,
+        `whisper ${job.filePath} --model medium ${deviceFlag} --output_dir uploads --output_format txt --language hindi`,
         (error) => {
           if (error) {
             const errorStr = error.toString().toLowerCase();
