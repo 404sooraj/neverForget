@@ -73,7 +73,7 @@ export default function HomeScreen() {
     try {
       // Log the API URL for debugging
       const apiUrl = `${process.env.EXPO_PUBLIC_API_URL}/queue-status`;
-      console.log("Fetching from URL:", apiUrl);
+      // console.log("Fetching from URL:", apiUrl);
 
       const response = await fetch(apiUrl);
 
