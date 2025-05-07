@@ -128,7 +128,7 @@ class TranscriptionQueue {
       );
 
       exec(
-        `whisper ${job.filePath} --model turbo ${deviceFlag} --output_dir uploads --output_format txt --language Hindi`,
+        `whisper ${job.filePath} --model base ${deviceFlag} --output_dir uploads --output_format txt --language Hindi`,
         (error) => {
           if (error) {
             const errorStr = error.toString().toLowerCase();
@@ -149,7 +149,7 @@ class TranscriptionQueue {
               if (!useCPU) {
                 console.log("Retrying failed GPU transcription on CPU");
                 exec(
-                  `whisper ${job.filePath} --model turbo --device cpu --output_dir uploads --output_format txt --language Hindi`,
+                  `whisper ${job.filePath} --model base --device cpu --output_dir uploads --output_format txt --language Hindi`,
                   (cpuError) => {
                     if (cpuError) {
                       console.error("CPU fallback also failed:", cpuError);
