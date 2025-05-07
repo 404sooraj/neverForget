@@ -18,7 +18,7 @@
         "buildType": "app-bundle"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "YOUR_PRODUCTION_API_URL_HERE"
+        "EXPO_PUBLIC_API_URL": "https://neverforget.onrender.com/"
       }
     }
   }

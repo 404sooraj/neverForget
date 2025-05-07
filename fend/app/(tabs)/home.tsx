@@ -141,6 +141,7 @@ export default function HomeScreen() {
     // If stop/unload was successful, add to upload queue
     if (stoppedAndUnloadedSuccessfully && audioUri && username) {
       await uploadQueue.addToQueue(audioUri, username);
+      // Note: Audio file will be automatically deleted after successful upload by the upload queue
     }
 
     // Old recording is processed. Clear ref before creating a new one.
@@ -252,6 +253,7 @@ export default function HomeScreen() {
         console.log("Final segment stopped, URI:", uri);
         if (uri && username) {
           await uploadQueue.addToQueue(uri, username);
+          // Note: Audio file will be automatically deleted after successful upload by the upload queue
         }
       } catch (err) {
         console.error("Error processing final audio segment:", err);
