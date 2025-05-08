@@ -1,7 +1,8 @@
 # Never Forget - ToDo List
 
 ## High Priority
-- Improve Vosk transcription accuracy by implementing a higher quality model
+- ✅ Replace Gemini with local NLP model for summarization
+- Improve local NLP model accuracy for better summaries
 - Add batch processing capabilities for multiple audio files
 - Implement error recovery for failed transcriptions
 - Add user preferences for transcription language selection
@@ -12,7 +13,8 @@
 - Implement tagging system for categorizing summaries
 - Create export options (PDF, text file)
 - Add speech-to-text settings customization
-- Improve UI/UX for mobile responsiveness
+- ✅ Improve UI/UX for mobile responsiveness
+- Tune local NLP algorithm for better memory retrieval accuracy
 
 ## Low Priority
 - Implement sharing capabilities for summaries
@@ -31,4 +33,12 @@
 - Integration with cloud storage services
 - Voice command functionality
 - Real-time collaboration features
-- AI-powered summary enhancement
+- Server-side caching for faster memory retrieval
+
+## Completed
+- ✅ Replace Gemini with local NLP model for summarization
+- ✅ Improve UI/UX with consistent design system
+- ✅ Add dark mode support
+- ✅ Enhance animation and visual feedback
+- ✅ Implement responsive components 
+- ✅ Improve accessibility with better contrast and labeling

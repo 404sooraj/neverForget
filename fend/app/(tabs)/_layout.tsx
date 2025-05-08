@@ -2,11 +2,17 @@ import React from "react";
 import { Tabs } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useColorScheme } from "react-native";
+import theme from "@/services/theme";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
-  const activeColor = colorScheme === "dark" ? "#fff" : "#1e40af"; // Tailwind's blue-800
-  const inactiveColor = "#94a3b8"; // Tailwind's slate-400
+  const isDarkMode = colorScheme === 'dark';
+  
+  // Use theme colors instead of hardcoded values
+  const activeColor = isDarkMode ? theme.colors.primary[400] : theme.colors.primary[600];
+  const inactiveColor = isDarkMode ? theme.colors.neutral[500] : theme.colors.secondary[400];
+  const bgColor = isDarkMode ? theme.colors.secondary[900] : theme.colors.white;
+  const borderColor = isDarkMode ? theme.colors.secondary[800] : theme.colors.secondary[200];
 
   return (
     <Tabs
@@ -15,14 +21,18 @@ export default function TabLayout() {
         tabBarActiveTintColor: activeColor,
         tabBarInactiveTintColor: inactiveColor,
         tabBarStyle: {
-          backgroundColor: colorScheme === "dark" ? "#0f172a" : "#f8fafc", // Tailwind slate-900 / slate-50
-          borderTopColor: "#e2e8f0", // Tailwind slate-200
+          backgroundColor: bgColor,
+          borderTopColor: borderColor,
+          borderTopWidth: 1,
           paddingVertical: 6,
-          height: 70,
+          height: theme.layout.bottomTabHeight,
+          ...theme.shadows.sm,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
-          fontWeight: "600",
+          fontSize: theme.typography.fontSize.xs,
+          fontWeight: '600', // semibold
+          marginBottom: 3,
+          marginTop: 1,
         },
       }}
     >
@@ -32,10 +42,9 @@ export default function TabLayout() {
           title: "Home",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? "home-sharp" : "home-outline"}
+              name={focused ? "home" : "home-outline"}
               color={color}
-              size={26}
-              style={{ marginBottom: -4 }}
+              size={22}
             />
           ),
         }}
@@ -43,13 +52,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="summary"
         options={{
-          title: "Summary",
+          title: "Memories",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? "book-sharp" : "book-outline"}
+              name={focused ? "book" : "book-outline"}
               color={color}
-              size={26}
-              style={{ marginBottom: -4 }}
+              size={22}
             />
           ),
         }}
@@ -57,13 +65,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="chatbot"
         options={{
-          title: "Memory AI",
+          title: "Ask AI",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? "chatbubble-sharp" : "chatbubble-outline"}
+              name={focused ? "chatbubbles" : "chatbubbles-outline"}
               color={color}
-              size={26}
-              style={{ marginBottom: -4 }}
+              size={22}
             />
           ),
         }}
@@ -74,10 +81,9 @@ export default function TabLayout() {
           title: "Profile",
           tabBarIcon: ({ color, focused }) => (
             <Ionicons
-              name={focused ? "person-sharp" : "person-outline"}
+              name={focused ? "person" : "person-outline"}
               color={color}
-              size={26}
-              style={{ marginBottom: -4 }}
+              size={22}
             />
           ),
         }}
