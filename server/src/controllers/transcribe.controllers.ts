@@ -70,7 +70,7 @@ export const transcribeAudio = async (
       return;
     }
 
-    const { username } = req.body;
+    const { username, language } = req.body;
     if (!username) {
       // Clean up the file if username is missing
       fs.unlink(req.file.path, () => {});
@@ -95,6 +95,9 @@ export const transcribeAudio = async (
       res.status(400).json({ error: "File not found or inaccessible" });
       return;
     }
+
+    // Set language to English-Indian if specified, otherwise use default
+    const transcriptionLanguage = language === "en-in" ? "en-in" : "hindi";
 
     // Add job to queue and get job ID
     const jobId = await transcriptionQueue.addJob(
@@ -143,6 +146,7 @@ export const transcribeAudio = async (
             userId: user._id,
             audioFile: req.file?.originalname,
             transcript: transcriptionText,
+            language: transcriptionLanguage // Save the language used
           });
 
           await newTranscript.save();
@@ -172,14 +176,17 @@ export const transcribeAudio = async (
           fs.unlink(filePath, () => {});
           fs.unlink(`${filePath}.txt`, () => {});
         }
-      }
+      },
+      3, // max retries
+      transcriptionLanguage // pass the language to the job
     );
 
-    // Return immediately with job ID
+    // Return immediately with job ID and language info
     res.status(202).json({
       message: "Transcription job queued",
       jobId,
       status: "queued",
+      language: transcriptionLanguage
     });
   } catch (error) {
     console.error("Failed to queue transcription:", error);
@@ -670,5 +677,27 @@ export const getQueueStatus = async (
   } catch (error) {
     console.error("Error retrieving queue status:", error);
     res.status(500).json({ error: "Failed to get queue status" });
+  }
+};
+
+// Add new endpoint to get Vosk status
+export const checkVoskStatus = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const queueStatus = transcriptionQueue.getQueueStatus();
+    
+    // Return Vosk readiness status
+    res.json({
+      voskReady: queueStatus.voskReady,
+      timestamp: new Date().toISOString(),
+      message: queueStatus.voskReady 
+        ? "Vosk is properly initialized and ready for English-Indian transcription" 
+        : "Vosk is not ready. Please check Python dependencies and make sure vosk and wave modules are installed."
+    });
+  } catch (error) {
+    console.error("Error retrieving Vosk status:", error);
+    res.status(500).json({ error: "Failed to get Vosk status" });
   }
 };

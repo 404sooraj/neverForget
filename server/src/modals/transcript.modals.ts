@@ -18,6 +18,11 @@ const transcriptSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  language: {
+    type: String,
+    enum: ["hindi", "en-in", "english"],
+    default: "hindi",
+  },
   summary: {
     type: String,
     default: "",

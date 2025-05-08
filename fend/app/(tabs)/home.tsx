@@ -21,7 +21,7 @@ import { useAuth } from "../auth/AuthContext";
 import { router } from "expo-router";
 import { uploadQueue } from "@/modules/uploadQueue";
 
-const RECORDING_INTERVAL_MS = 10 * 1000; // 1 minute for testing, revert to 60 * 1000 for production
+const RECORDING_INTERVAL_MS = 30 * 1000; // Recording interval of 30 seconds
 
 // Interface for transcription queue status
 interface TranscriptionQueueStatus {

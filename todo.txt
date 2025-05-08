@@ -1,4 +1,34 @@
-current task 
-ui improvement
-frontend error should not show
-buttons should work ?
+# Never Forget - ToDo List
+
+## High Priority
+- Improve Vosk transcription accuracy by implementing a higher quality model
+- Add batch processing capabilities for multiple audio files
+- Implement error recovery for failed transcriptions
+- Add user preferences for transcription language selection
+- Create admin dashboard for monitoring system performance
+
+## Medium Priority
+- Add search functionality for summaries
+- Implement tagging system for categorizing summaries
+- Create export options (PDF, text file)
+- Add speech-to-text settings customization
+- Improve UI/UX for mobile responsiveness
+
+## Low Priority
+- Implement sharing capabilities for summaries
+- Add dark/light theme toggle
+- Create detailed analytics for transcription quality
+- Implement additional language support
+- Add offline capabilities for essential features
+
+## Bugs & Fixes
+- Fix Windows file path normalization issues
+- Optimize transcription queue performance
+- Address memory leaks in long-running transcription processes
+- Fix audio recording timing inconsistencies
+
+## Features Under Consideration
+- Integration with cloud storage services
+- Voice command functionality
+- Real-time collaboration features
+- AI-powered summary enhancement

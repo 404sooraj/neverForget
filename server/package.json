@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "setup-vosk": "node setup-vosk.js"
   },
   "keywords": [],
   "author": "",
@@ -34,5 +35,9 @@
     "@types/node": "^22.15.3",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"
-  }
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "notes": "Vosk requires Python and FFmpeg to be installed. Run 'npm run setup-vosk' to install dependencies."
 }

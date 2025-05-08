@@ -189,6 +189,7 @@ class UploadQueue {
           type: "audio/m4a",
         } as any);
         formData.append("username", item.username);
+        formData.append("language", "en-in");
 
         console.log(
           `Uploading file attempt ${attempt + 1}/${maxRetries + 1}...`

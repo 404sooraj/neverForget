@@ -1,0 +1,6 @@
+# API Configuration
+EXPO_PUBLIC_API_URL=http://192.168.104.94:5000
+
+
+# Add other environment variables as needed
+# EXPO_PUBLIC_ prefix makes variables available at runtime 

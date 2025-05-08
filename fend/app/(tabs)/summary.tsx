@@ -42,6 +42,7 @@ export default function SummaryScreen() {
     useState<Transcript | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+  const [clearAllConfirmVisible, setClearAllConfirmVisible] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const fetchTranscripts = useCallback(async () => {
@@ -205,6 +206,68 @@ export default function SummaryScreen() {
     } catch (error) {
       console.error("Error sharing:", error);
       Alert.alert("Error", "Failed to share summary");
+    }
+  };
+
+  const showClearAllConfirm = () => {
+    if (transcripts.length === 0) {
+      Alert.alert("No Memories", "There are no memories to clear.");
+      return;
+    }
+    setClearAllConfirmVisible(true);
+  };
+
+  const handleClearAll = async () => {
+    try {
+      if (transcripts.length === 0 || !username) {
+        setClearAllConfirmVisible(false);
+        return;
+      }
+
+      setLoading(true);
+      
+      const deletePromises = transcripts.map(transcript => 
+        fetch(`${API_URL}/transcripts/${transcript._id}`, {
+          method: "DELETE",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ username }),
+        })
+      );
+      
+      const results = await Promise.allSettled(deletePromises);
+      
+      // Check if all deletions were successful
+      const allSucceeded = results.every(
+        result => result.status === 'fulfilled' && (result.value as Response).ok
+      );
+      
+      if (allSucceeded) {
+        setTranscripts([]);
+        Alert.alert("Success", "All memories have been cleared.");
+      } else {
+        const failedCount = results.filter(
+          result => result.status === 'rejected' || !(result.value as Response).ok
+        ).length;
+        
+        if (failedCount === results.length) {
+          Alert.alert("Error", "Failed to clear memories. Please try again.");
+        } else {
+          // Refresh to get updated list
+          fetchTranscripts();
+          Alert.alert(
+            "Partial Success", 
+            `${results.length - failedCount} of ${results.length} memories were cleared. ${failedCount} failed.`
+          );
+        }
+      }
+    } catch (error) {
+      console.error("Error clearing all transcripts:", error);
+      Alert.alert("Error", "Failed to clear memories. Please try again.");
+    } finally {
+      setLoading(false);
+      setClearAllConfirmVisible(false);
     }
   };
 
@@ -392,11 +455,45 @@ export default function SummaryScreen() {
               <Text style={styles.cancelButtonText}>Cancel</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.confirmButton, styles.deleteConfirmButton]}
+              style={[styles.confirmButton, styles.deleteButton]}
               onPress={handleDelete}
             >
               <Text style={styles.deleteButtonText}>Delete</Text>
             </TouchableOpacity>
+          </View>
+        </View>
+      </BlurView>
+    </Modal>
+  );
+
+  const renderClearAllConfirmModal = () => (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={clearAllConfirmVisible}
+      onRequestClose={() => setClearAllConfirmVisible(false)}
+    >
+      <BlurView intensity={30} style={styles.modalContainer}>
+        <View style={styles.confirmModal}>
+          <View style={styles.confirmContent}>
+            <Text style={styles.confirmTitle}>Clear All Memories</Text>
+            <Text style={styles.confirmText}>
+              Are you sure you want to delete all your memories? This action cannot be undone.
+            </Text>
+            <View style={styles.confirmButtons}>
+              <Pressable
+                style={[styles.confirmButton, styles.cancelButton]}
+                onPress={() => setClearAllConfirmVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.confirmButton, styles.deleteButton]}
+                onPress={handleClearAll}
+              >
+                <Text style={styles.deleteButtonText}>Clear All</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
       </BlurView>
@@ -415,9 +512,16 @@ export default function SummaryScreen() {
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Your Memories</Text>
-        <TouchableOpacity style={styles.reloadButton} onPress={onRefresh}>
-          <Ionicons name="reload-outline" size={24} color="#007AFF" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          {transcripts.length > 0 && (
+            <TouchableOpacity style={styles.clearButton} onPress={showClearAllConfirm}>
+              <Ionicons name="trash-outline" size={22} color="#FF3B30" />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.reloadButton} onPress={onRefresh}>
+            <Ionicons name="reload-outline" size={24} color="#007AFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {transcripts.length === 0 ? (
@@ -442,6 +546,7 @@ export default function SummaryScreen() {
 
       {renderDetailModal()}
       {renderDeleteConfirmModal()}
+      {renderClearAllConfirmModal()}
     </View>
   );
 }
@@ -466,6 +571,19 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "700",
     color: "#1A1A1A",
+  },
+  headerButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  clearButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFF1F0",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 8,
   },
   reloadButton: {
     width: 40,
@@ -558,7 +676,7 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   deleteButton: {
-    backgroundColor: "#FFF1F0",
+    backgroundColor: "#FF3B30",
   },
   emptyContainer: {
     flex: 1,
@@ -659,6 +777,8 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#1A1A1A",
     marginTop: 12,
+    marginBottom: 12,
+    textAlign: "center",
   },
   confirmText: {
     fontSize: 16,
@@ -670,6 +790,7 @@ const styles = StyleSheet.create({
   confirmButtons: {
     flexDirection: "row",
     justifyContent: "space-between",
+    width: "100%",
   },
   confirmButton: {
     flex: 1,
@@ -678,12 +799,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginHorizontal: 8,
+    padding: 12,
   },
   cancelButton: {
     backgroundColor: "#F5F5F7",
-  },
-  deleteConfirmButton: {
-    backgroundColor: "#FF3B30",
   },
   cancelButtonText: {
     fontSize: 16,
@@ -700,5 +819,20 @@ const styles = StyleSheet.create({
     color: "#666666",
     textAlign: "center",
     marginTop: 20,
+  },
+  confirmContent: {
+    width: "90%",
+    backgroundColor: "white",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
 });
