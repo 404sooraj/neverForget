@@ -1,8 +1,10 @@
+'use client'
+
 import Link from "next/link"
 import Image from "next/image"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Mic, Brain, Share2, Search, Settings, Smartphone } from "lucide-react"
+import { Mic, Brain, Share2, Search, Settings, Smartphone, Github } from "lucide-react"
 
 export default function LandingPage() {
   return (
@@ -15,23 +17,30 @@ export default function LandingPage() {
               <div className="space-y-2">
                 <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none">NeverForget</h1>
                 <p className="text-purple-600 dark:text-purple-300 text-xl md:text-2xl">
-                  Assistive technology for memory challenges
+                  Open Source Assistive Technology for Memory Challenges
                 </p>
                 <p className="max-w-[600px] text-gray-500 md:text-xl dark:text-gray-400">
-                  Capture thoughts, memories, and important information through quick voice recordings, automatically
-                  transcribed and summarized for easy future reference.
+                  An open-source project dedicated to helping people capture thoughts, memories, and important information through quick voice recordings, automatically transcribed and summarized for easy future reference.
                 </p>
               </div>
               <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                <Button className="bg-purple-600 hover:bg-purple-700">Download App</Button>
-                <Button variant="outline">Learn More</Button>
+                <Button
+                  className="bg-purple-600 hover:bg-purple-700"
+                  onClick={() => window.open('https://github.com/Sooraj002/neverForget', '_blank')}
+                >
+                  <Github className="mr-2 h-4 w-4" />
+                  View on GitHub
+                </Button>
+                <Link href="/contact">
+                  <Button variant="outline">Get Involved</Button>
+                </Link>
               </div>
             </div>
             <div className="flex items-center justify-center">
-              <div className="relative h-[450px] w-[250px] overflow-hidden rounded-xl border-8 border-gray-800 bg-gray-800 shadow-xl">
+              <div className="relative h-[500px] w-[250px] overflow-hidden rounded-xl border-8 border-gray-800 bg-gray-800 shadow-xl">
                 <div className="absolute inset-0 bg-purple-100 dark:bg-purple-900">
                   <Image
-                    src="/placeholder.svg?height=450&width=250"
+                    src="/homeScreen.png"
                     width={250}
                     height={450}
                     alt="NeverForget App Screenshot"
@@ -51,8 +60,7 @@ export default function LandingPage() {
             <div className="space-y-2">
               <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Purpose & Vision</h2>
               <p className="max-w-[900px] text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-gray-400">
-                NeverForget aims to help individuals with memory difficulties maintain independence, provide cognitive
-                support for people with ADHD, and assist dementia patients in preserving and accessing their memories.
+                NeverForget is an open-source initiative aimed at helping individuals with memory difficulties maintain independence, provide cognitive support for people with ADHD, and assist dementia patients in preserving and accessing their memories.
               </p>
             </div>
           </div>
@@ -83,11 +91,11 @@ export default function LandingPage() {
             <Card>
               <CardHeader className="flex flex-row items-center gap-4 pb-2">
                 <Share2 className="h-8 w-8 text-purple-600" />
-                <CardTitle>Caregiver Sharing</CardTitle>
+                <CardTitle>Community-Driven</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>
-                  Share memories and important information with caregivers to provide better support and care.
+                  An open-source project that welcomes contributions from developers who want to make a difference in people's lives.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -184,7 +192,7 @@ export default function LandingPage() {
             <div className="flex flex-col items-center justify-center space-y-2 p-4">
               <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center dark:bg-gray-800">
                 <Image
-                  src="/placeholder.svg?height=64&width=64"
+                  src="/reactNative.png"
                   width={64}
                   height={64}
                   alt="React Native"
@@ -196,7 +204,7 @@ export default function LandingPage() {
             <div className="flex flex-col items-center justify-center space-y-2 p-4">
               <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center dark:bg-gray-800">
                 <Image
-                  src="/placeholder.svg?height=64&width=64"
+                  src="/nodejs.png"
                   width={64}
                   height={64}
                   alt="Node.js"
@@ -208,7 +216,7 @@ export default function LandingPage() {
             <div className="flex flex-col items-center justify-center space-y-2 p-4">
               <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center dark:bg-gray-800">
                 <Image
-                  src="/placeholder.svg?height=64&width=64"
+                  src="/whisper.png"
                   width={64}
                   height={64}
                   alt="OpenAI Whisper"
@@ -220,7 +228,7 @@ export default function LandingPage() {
             <div className="flex flex-col items-center justify-center space-y-2 p-4">
               <div className="h-16 w-16 rounded-full bg-gray-100 flex items-center justify-center dark:bg-gray-800">
                 <Image
-                  src="/placeholder.svg?height=64&width=64"
+                  src="/gemini.png"
                   width={64}
                   height={64}
                   alt="Google Gemini"
@@ -241,42 +249,50 @@ export default function LandingPage() {
               <div className="space-y-2">
                 <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl">Get Started Today</h2>
                 <p className="max-w-[600px] text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed dark:text-gray-400">
-                  Download NeverForget and start capturing your important memories and thoughts with ease.
+                  Join our open-source community and start contributing to NeverForget.
                 </p>
               </div>
               <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                <Button className="bg-purple-600 hover:bg-purple-700">Download for Android</Button>
-                <Button variant="outline">View Documentation</Button>
+                <Button
+                  className="bg-purple-600 hover:bg-purple-700"
+                  onClick={() => window.open('https://github.com/Sooraj002/neverForget', '_blank')}
+                >
+                  <Github className="mr-2 h-4 w-4" />
+                  View on GitHub
+                </Button>
+                <Link href="/contact">
+                  <Button variant="outline">Join the Community</Button>
+                </Link>
               </div>
             </div>
             <div className="space-y-4">
-              <h3 className="text-xl font-bold">Simple Setup</h3>
+              <h3 className="text-xl font-bold">Quick Start Guide</h3>
               <ol className="space-y-2">
                 <li className="flex items-start">
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-sm font-medium text-purple-600 dark:bg-purple-900 dark:text-purple-300">
                     1
                   </div>
-                  <p className="ml-2 text-gray-500 dark:text-gray-400">Download the app from Google Play Store</p>
+                  <p className="ml-2 text-gray-500 dark:text-gray-400">Clone the repository from GitHub</p>
                 </li>
                 <li className="flex items-start">
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-sm font-medium text-purple-600 dark:bg-purple-900 dark:text-purple-300">
                     2
                   </div>
-                  <p className="ml-2 text-gray-500 dark:text-gray-400">Create an account or sign in</p>
+                  <p className="ml-2 text-gray-500 dark:text-gray-400">Follow the setup instructions in README</p>
                 </li>
                 <li className="flex items-start">
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-sm font-medium text-purple-600 dark:bg-purple-900 dark:text-purple-300">
                     3
                   </div>
                   <p className="ml-2 text-gray-500 dark:text-gray-400">
-                    Grant necessary permissions for microphone access
+                    Install dependencies and start the development server
                   </p>
                 </li>
                 <li className="flex items-start">
                   <div className="flex h-6 w-6 items-center justify-center rounded-full bg-purple-100 text-sm font-medium text-purple-600 dark:bg-purple-900 dark:text-purple-300">
                     4
                   </div>
-                  <p className="ml-2 text-gray-500 dark:text-gray-400">Start recording your first memory</p>
+                  <p className="ml-2 text-gray-500 dark:text-gray-400">Start contributing to the project</p>
                 </li>
               </ol>
             </div>
@@ -285,25 +301,30 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="w-full py-6 md:py-12 bg-gray-100 dark:bg-gray-800">
+      <footer className="w-full py-6 bg-gray-100 dark:bg-gray-900">
         <div className="container px-4 md:px-6">
-          <div className="flex flex-col items-center justify-center space-y-4 text-center">
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold">NeverForget</h2>
-              <p className="text-gray-500 dark:text-gray-400">Assistive technology for memory challenges</p>
-            </div>
-            <div className="flex space-x-4">
-              <Link href="#" className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50">
+          <div className="flex flex-col items-center justify-between gap-4 md:flex-row">
+            <div className="flex flex-col items-center gap-4 px-8 md:flex-row md:gap-2 md:px-0">
+              <Link href="/privacy-policy" className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50">
                 Privacy Policy
               </Link>
-              <Link href="#" className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50">
+              <Link href="/terms-of-service" className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50">
                 Terms of Service
               </Link>
-              <Link href="#" className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50">
+              <Link href="/contact" className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50">
                 Contact
               </Link>
             </div>
-            <div className="text-sm text-gray-500 dark:text-gray-400">© 2025 NeverForget. All rights reserved.</div>
+            <div className="flex items-center gap-4">
+              <Link
+                href="https://github.com/Sooraj002/neverForget"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-50"
+              >
+                <Github className="h-5 w-5" />
+              </Link>
+            </div>
           </div>
         </div>
       </footer>

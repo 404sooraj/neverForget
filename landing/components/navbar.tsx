@@ -25,12 +25,12 @@ export default function Navbar() {
           </Link>
         </nav>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="hidden md:flex">
+          {/* <Button variant="outline" size="sm" className="hidden md:flex">
             Sign In
-          </Button>
-          <Button size="sm" className="bg-purple-600 hover:bg-purple-700">
-            Download
-          </Button>
+          </Button> */}
+          {/* <Button size="sm" className="bg-purple-600 hover:bg-purple-700">
+            Get Started
+          </Button> */}
         </div>
       </div>
     </header>
