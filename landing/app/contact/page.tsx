@@ -8,13 +8,13 @@ import Link from "next/link";
 const Contact = () => {
   const team = [
     {
-      name: "Sooraj Bhaskar Nambiar",
+      name: "Sooraj Nambiar",
       role: "Developer",
       linkedin: "https://www.linkedin.com/in/sooraj-bhaskar-nambiar/",
       twitter: "https://x.com/404sooraj"
     },
     {
-      name: "Krish",
+      name: "Krish Khanna",
       role: "Developer",
       linkedin: "https://www.linkedin.com/in/krishkh/",
       twitter: "https://x.com/krishk317"
