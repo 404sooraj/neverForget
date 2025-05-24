@@ -1,7 +1,5 @@
 import { exec } from "child_process";
 import { EventEmitter } from "events";
-import { transcribeWithVosk, downloadVoskModel, checkVoskDependencies } from "./vosk-transcribe";
-import path from "path";
 
 interface TranscriptionJob {
   id: string;
@@ -9,7 +7,6 @@ interface TranscriptionJob {
   username: string;
   retries: number;
   maxRetries: number;
-  language?: string; // Add language parameter
   onComplete: (error: Error | null, result?: any) => void;
 }
 
@@ -19,53 +16,17 @@ class TranscriptionQueue {
   private maxConcurrency: number = 2; // Reduced from 3 to 2 to avoid GPU memory issues
   private events: EventEmitter;
   private gpuFailures: number = 0; // Track GPU failures to decide when to fall back to CPU
-  private voskReady: boolean = false;
-  private isInitializing: boolean = false;
 
   constructor() {
     this.events = new EventEmitter();
     this.events.on("processNext", this.processNext.bind(this));
-    
-    // Initialize Vosk model
-    this.initializeVosk().catch(err => {
-      console.error("Failed to initialize Vosk:", err);
-    });
-  }
-
-  private async initializeVosk(): Promise<void> {
-    if (this.isInitializing) return;
-    this.isInitializing = true;
-
-    try {
-      // Check if Vosk dependencies are installed
-      const depsInstalled = await checkVoskDependencies();
-      
-      if (!depsInstalled) {
-        console.log("Vosk dependencies not found. Please install them with:");
-        console.log("pip install vosk pydub");
-        console.log("Falling back to whisper transcription");
-        this.voskReady = false;
-        return;
-      }
-
-      // Download the English-Indian model if not already downloaded
-      await downloadVoskModel("vosk-model-en-in-0.4");
-      this.voskReady = true;
-      console.log("Vosk initialized successfully with English-Indian model");
-    } catch (error) {
-      console.error("Error initializing Vosk:", error);
-      this.voskReady = false;
-    } finally {
-      this.isInitializing = false;
-    }
   }
 
   public async addJob(
     filePath: string,
     username: string,
     onComplete: (error: Error | null, result?: any) => void,
-    maxRetries: number = 3,
-    language: string = "en-in" // Default to English-Indian
+    maxRetries: number = 3
   ): Promise<string> {
     const jobId = `job_${Date.now()}_${Math.random()
       .toString(36)
@@ -77,7 +38,6 @@ class TranscriptionQueue {
       username,
       retries: 0,
       maxRetries,
-      language,
       onComplete,
     };
 
@@ -158,48 +118,17 @@ class TranscriptionQueue {
   }
 
   private processTranscription(job: TranscriptionJob): Promise<void> {
-    // Use Vosk for English-Indian transcription if ready and language is en-in
-    if (this.voskReady && job.language === "en-in") {
-      console.log(`Using Vosk for English-Indian transcription of ${job.filePath}`);
-      return new Promise((resolve, reject) => {
-        transcribeWithVosk(job.filePath)
-          .then(() => {
-            resolve();
-          })
-          .catch((error) => {
-            console.error("Vosk transcription failed:", error);
-            console.log("Falling back to Whisper transcription");
-            // Fall back to Whisper if Vosk fails
-            this.runWhisperTranscription(job, true)
-              .then(resolve)
-              .catch(reject);
-          });
-      });
-    } else {
-      // Use Whisper for other languages or if Vosk is not ready
-      return this.runWhisperTranscription(job);
-    }
-  }
-
-  private runWhisperTranscription(job: TranscriptionJob, isFallback = false): Promise<void> {
     return new Promise((resolve, reject) => {
       // Determine if we should use CPU based on previous GPU failures
       const useCPU = this.gpuFailures > 0;
       const deviceFlag = useCPU ? "--device cpu" : "";
-      
-      // Determine the language flag
-      let languageFlag = "--language English"; // Default language
-      
-      if (job.language === "en-in") {
-        languageFlag = "--language English";
-      }
-      
+
       console.log(
-        `Running Whisper transcription${useCPU ? " on CPU" : " on GPU"} with ${languageFlag}${isFallback ? " (fallback from Vosk)" : ""}`
+        `Running Whisper transcription${useCPU ? " on CPU" : " on GPU"}`
       );
 
       exec(
-        `whisper ${job.filePath} --model base ${deviceFlag} --output_dir uploads --output_format txt ${languageFlag}`,
+        `whisper ${job.filePath} --model base ${deviceFlag} --output_dir uploads --output_format txt --language Hindi`,
         (error) => {
           if (error) {
             const errorStr = error.toString().toLowerCase();
@@ -220,7 +149,7 @@ class TranscriptionQueue {
               if (!useCPU) {
                 console.log("Retrying failed GPU transcription on CPU");
                 exec(
-                  `whisper ${job.filePath} --model base --device cpu --output_dir uploads --output_format txt ${languageFlag}`,
+                  `whisper ${job.filePath} --model base --device cpu --output_dir uploads --output_format txt --language Hindi`,
                   (cpuError) => {
                     if (cpuError) {
                       console.error("CPU fallback also failed:", cpuError);
@@ -246,13 +175,11 @@ class TranscriptionQueue {
     queueLength: number;
     activeJobs: number;
     maxConcurrency: number;
-    voskReady: boolean;
   } {
     return {
       queueLength: this.queue.length,
       activeJobs: this.currentProcessing,
       maxConcurrency: this.maxConcurrency,
-      voskReady: this.voskReady,
     };
   }
 

@@ -5,8 +5,7 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
-    "setup-vosk": "node setup-vosk.js"
+    "start": "node dist/index.js"
   },
   "keywords": [],
   "author": "",
@@ -24,9 +23,7 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.14.0",
-    "multer": "^1.4.5-lts.2",
-    "natural": "^8.0.1",
-    "node-nlp": "^5.0.0-alpha.5"
+    "multer": "^1.4.5-lts.2"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
@@ -37,9 +34,5 @@
     "@types/node": "^22.15.3",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.8.3"
-  },
-  "engines": {
-    "node": ">=14.0.0"
-  },
-  "notes": "Vosk requires Python and FFmpeg to be installed. Run 'npm run setup-vosk' to install dependencies."
+  }
 }

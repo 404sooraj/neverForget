@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { exec } from "child_process";
 import fs from "fs";
 import { Transcript } from "../modals/transcript.modals";
-import { generateLocalSummary } from "../config/local-nlp";
+import { GoogleGenAI } from "@google/genai";
 import User from "../modals/user.modals";
 import multer from "multer";
 import path from "path";
@@ -19,6 +19,8 @@ declare global {
     }
   }
 }
+
+const genAI = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 // Configure multer for file upload
 const storage = multer.diskStorage({
@@ -68,7 +70,7 @@ export const transcribeAudio = async (
       return;
     }
 
-    const { username, language } = req.body;
+    const { username } = req.body;
     if (!username) {
       // Clean up the file if username is missing
       fs.unlink(req.file.path, () => {});
@@ -93,9 +95,6 @@ export const transcribeAudio = async (
       res.status(400).json({ error: "File not found or inaccessible" });
       return;
     }
-
-    // Set language to English-Indian if specified, otherwise use default
-    const transcriptionLanguage = language === "en-in" ? "en-in" : "hindi";
 
     // Add job to queue and get job ID
     const jobId = await transcriptionQueue.addJob(
@@ -144,7 +143,6 @@ export const transcribeAudio = async (
             userId: user._id,
             audioFile: req.file?.originalname,
             transcript: transcriptionText,
-            language: transcriptionLanguage // Save the language used
           });
 
           await newTranscript.save();
@@ -174,17 +172,14 @@ export const transcribeAudio = async (
           fs.unlink(filePath, () => {});
           fs.unlink(`${filePath}.txt`, () => {});
         }
-      },
-      3, // max retries
-      transcriptionLanguage // pass the language to the job
+      }
     );
 
-    // Return immediately with job ID and language info
+    // Return immediately with job ID
     res.status(202).json({
       message: "Transcription job queued",
       jobId,
       status: "queued",
-      language: transcriptionLanguage
     });
   } catch (error) {
     console.error("Failed to queue transcription:", error);
@@ -196,25 +191,80 @@ export const transcribeAudio = async (
   }
 };
 
-// Function to generate summary using local NLP model
+// Function to generate summary using Gemini
 export const generateSummary = async (
   transcript: string
 ): Promise<{ summary: string; oneLiner: string }> => {
   try {
-    console.log("Generating summary using local NLP model...");
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error("GEMINI_API_KEY is not configured");
+    }
+
+    console.log("Generating summary using Gemini API...");
+    const prompt = `You are a helpful AI assistant for a memory-aid device designed to help people with dementia remember recent conversations. Given the following raw transcript from a live conversation, generate two things:
+
+    1. A **concise one-line summary** capturing the core message or intention of the conversation. This must be direct, essential, and free of filler.
+    2. A **clear and coherent summary** of the conversation that covers all important details, rephrased for clarity and ease of recall. Do NOT mention that this is a summary—just present the key details in a natural, narrative style.
     
-    // Call our local model instead of Gemini
-    const result = await generateLocalSummary(transcript);
+    Output your response as a JSON object like this:
+    {
+      "oneLiner": "One sentence that captures the essence of the conversation.",
+      "summary": "A multi-paragraph detailed summary rephrased in simple language, suitable for someone with memory loss to understand easily."
+    }
     
-    return {
-      summary: result.summary,
-      oneLiner: result.oneLiner
-    };
-  } catch (error) {
-    console.error("Error generating summary:", error);
-    throw error;
+    Transcript:
+    """
+    ${transcript}
+    """`;
+
+    const response = await genAI.models.generateContent({
+      model: "gemini-1.5-flash",
+      contents: prompt,
+    });
+
+    if (!response.text) {
+      throw new Error("Failed to generate summary: Empty response from Gemini");
+    }
+
+    console.log("Raw Gemini response received");
+
+    try {
+      // Extract JSON if the response has extra text
+      let jsonText = response.text.trim();
+
+      // Remove markdown code blocks and any prefixes
+      jsonText = jsonText.replace(/^```json\s*|\s*```$/g, "");
+      jsonText = jsonText.replace(/^```\s*|\s*```$/g, "");
+
+      // Try to parse the response as JSON
+      const parsedResponse = JSON.parse(jsonText);
+
+      // Validate that we have both fields
+      if (!parsedResponse.summary || !parsedResponse.oneLiner) {
+        throw new Error("Response missing required fields");
+      }
+
+      console.log("Summary generated successfully");
+      return {
+        summary: parsedResponse.summary,
+        oneLiner: parsedResponse.oneLiner,
+      };
+    } catch (parseError) {
+      console.error("Failed to parse Gemini response as JSON:", parseError);
+
+      // Fallback: use the whole response as the summary and generate a default one-liner
+      return {
+        summary: response.text.trim(),
+        oneLiner: "Summary of transcript",
+      };
+    }
+  } catch (error: any) {
+    console.error("Summary generation failed:", error);
+    throw new Error(
+      `Failed to generate summary: ${error?.message || "Unknown error"}`
+    );
   }
-}
+};
 
 // Helper function to generate and save summary
 const generateAndSaveSummary = async (transcriptDoc: any): Promise<void> => {
@@ -401,68 +451,134 @@ export const getAllTranscripts = async (
   }
 };
 
-// Function to determine current task using local processing
+// Determine the current task based on recent summaries
 export const getCurrentTask = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  const { username } = req.params;
+  console.log(`Attempting to get current task for user: ${username}`);
+
   try {
-    const { username } = req.params;
-
-    if (!username) {
-      res.status(400).json({ error: "Username is required" });
-      return;
-    }
-
-    // Find user by username
+    // 1. Find the user
     const user = await User.findOne({ username });
     if (!user) {
+      console.warn(`User not found: ${username}`);
       res.status(404).json({ error: "User not found" });
       return;
     }
+    console.log(`User found: ${username}, ID: ${user._id}`);
 
-    // Get the user's most recent transcripts
+    // 2. Get the latest 6 transcripts with non-empty, non-error summaries
     const recentTranscripts = await Transcript.find({
       userId: user._id,
-      isSummarized: true, // Only use successfully summarized transcripts
-      summaryError: null, // And without errors
+      isSummarized: true,
+      summary: { $exists: true, $ne: "" }, // Ensure summary exists and is not empty
+      summaryError: null, // Ensure no summary error occurred
     })
-      .sort({ timestamp: -1 }) // Most recent first
-      .limit(5) // Only look at the 5 most recent
-      .select("oneLiner summary timestamp") // Only select what we need
-      .lean();
+      .sort({ timestamp: -1 }) // Latest first
+      .limit(6) // Limit to the last 6
+      .select("summary oneLiner timestamp") // Select only necessary fields
+      .lean(); // Use lean for better performance with raw JS objects
 
-    // If no transcripts, return default response
     if (recentTranscripts.length === 0) {
-      res.json({ currentTask: "No transcripts available to determine task" });
+      console.log(`No recent summaries found for user: ${username}`);
+      res.status(200).json({
+        currentTask:
+          "No recent summaries available to determine the current task.",
+      });
       return;
     }
+    console.log(
+      `Found ${recentTranscripts.length} recent summaries for user: ${username}`
+    );
 
-    // Simple algorithm to determine current task based on most recent transcript
+    // 3. Prepare summaries for the Gemini prompt (latest first)
+    const summariesText = recentTranscripts
+      .map(
+        (t, index) =>
+          `Summary ${index + 1} (Latest):\nOne-liner: ${
+            t.oneLiner
+          }\nFull Summary: ${t.summary}`
+      )
+      .join("\n\n---\n\n"); // Separate summaries clearly
+
+    // 4. Construct the prompt for Gemini
+    const prompt = `Analyze these recent conversation summaries (ordered from newest to oldest) and extract the user's current primary task or focus. If there's no clear pattern or insufficient context, respond with "Unable to determine, need more context". Keep the response very concise (max 10-15 words) and focused only on the active task/goal.\n\nSummaries:\n${summariesText}\n\nCurrent Task:`;
+
+    console.log(`Generating current task for user ${username} with prompt...`);
+
+    // 5. Call Gemini API
     let currentTask = "Could not determine current task at this time.";
-    
-    if (recentTranscripts.length > 0) {
-      // Use the one-liner from the most recent transcript as the current task
-      const mostRecent = recentTranscripts[0];
-      currentTask = mostRecent.oneLiner || "Conversation recorded recently";
-      
-      // Check timestamp to add recency information
-      const now = new Date();
-      const transcriptTime = new Date(mostRecent.timestamp);
-      const hoursDiff = Math.round((now.getTime() - transcriptTime.getTime()) / (1000 * 60 * 60));
-      
-      if (hoursDiff < 1) {
-        currentTask = `Just now: ${currentTask}`;
-      } else if (hoursDiff < 24) {
-        currentTask = `${hoursDiff} hours ago: ${currentTask}`;
+    try {
+      if (!process.env.GEMINI_API_KEY) {
+        console.error("GEMINI_API_KEY is not configured.");
+        throw new Error("GEMINI_API_KEY is not configured");
       }
+
+      const geminiAPIResponse = await genAI.models.generateContent({
+        model: "gemini-1.5-flash",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+      });
+
+      let extractedText = "";
+
+      // Based on the linter error, geminiAPIResponse.text is a 'get' accessor, not a function.
+      if (geminiAPIResponse && typeof geminiAPIResponse.text === "string") {
+        extractedText = geminiAPIResponse.text;
+        console.log("Extracted text using response.text property.");
+      } else if (
+        geminiAPIResponse &&
+        geminiAPIResponse.candidates &&
+        geminiAPIResponse.candidates.length > 0 &&
+        geminiAPIResponse.candidates[0].content &&
+        geminiAPIResponse.candidates[0].content.parts &&
+        geminiAPIResponse.candidates[0].content.parts.length > 0 &&
+        typeof geminiAPIResponse.candidates[0].content.parts[0].text ===
+          "string"
+      ) {
+        extractedText = geminiAPIResponse.candidates[0].content.parts[0].text;
+        console.log("Extracted text using response.candidates structure.");
+      } else {
+        // This case handles if .text is not a string and candidates structure is also not matching/empty.
+        // It also covers if geminiAPIResponse itself is null or undefined.
+        console.warn(
+          `Gemini returned an unexpected or empty response structure (user: ${username}). Response: ${JSON.stringify(
+            geminiAPIResponse
+          )}`
+        );
+        currentTask =
+          "Unable to determine current task due to an unexpected API response format.";
+      }
+
+      if (extractedText && extractedText.trim() !== "") {
+        currentTask = extractedText.trim();
+        console.log(`Current task determined for ${username}: ${currentTask}`);
+      } else if (
+        currentTask === "Could not determine current task at this time."
+      ) {
+        // Only update if currentTask wasn't set by the unexpected format error above.
+        console.warn(
+          `Gemini returned an empty or invalid text content (user: ${username}).`
+        );
+        currentTask =
+          "Unable to determine current task from the provided summaries (empty text).";
+      }
+    } catch (geminiError: any) {
+      console.error(
+        `Gemini API call failed for current task determination (user: ${username}):`,
+        geminiError
+      );
+      currentTask = `Error determining task: ${
+        geminiError.message || "Unknown Gemini API error"
+      }`;
     }
 
-    // Send the response
+    // 6. Send the response
     res.json({ currentTask });
   } catch (error: any) {
     console.error(
-      `Error in getCurrentTask for user ${req.params.username}:`,
+      `Overall error in getCurrentTask for user ${username}:`,
       error
     );
     res.status(500).json({
@@ -554,27 +670,5 @@ export const getQueueStatus = async (
   } catch (error) {
     console.error("Error retrieving queue status:", error);
     res.status(500).json({ error: "Failed to get queue status" });
-  }
-};
-
-// Add new endpoint to get Vosk status
-export const checkVoskStatus = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const queueStatus = transcriptionQueue.getQueueStatus();
-    
-    // Return Vosk readiness status
-    res.json({
-      voskReady: queueStatus.voskReady,
-      timestamp: new Date().toISOString(),
-      message: queueStatus.voskReady 
-        ? "Vosk is properly initialized and ready for English-Indian transcription" 
-        : "Vosk is not ready. Please check Python dependencies and make sure vosk and wave modules are installed."
-    });
-  } catch (error) {
-    console.error("Error retrieving Vosk status:", error);
-    res.status(500).json({ error: "Failed to get Vosk status" });
   }
 };

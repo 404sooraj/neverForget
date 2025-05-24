@@ -1,5 +1,6 @@
 import {
   View,
+  Text,
   StyleSheet,
   FlatList,
   RefreshControl,
@@ -10,20 +11,13 @@ import {
   Alert,
   Share,
   Animated,
-  useColorScheme,
 } from "react-native";
 import { useAuth } from "../auth/AuthContext";
 import { useState, useEffect, useCallback, useRef } from "react";
-import React from "react";
 import { Ionicons } from "@expo/vector-icons";
 import * as Speech from "expo-speech";
 import { BlurView } from "expo-blur";
 import { format } from "date-fns";
-import theme from "@/services/theme";
-import Header from "@/components/ui/Header";
-import Text from "@/components/ui/Text";
-import Card from "@/components/ui/Card";
-import Button from "@/components/ui/Button";
 
 import { API_URL } from "../../services/config";
 type Transcript = {
@@ -44,15 +38,11 @@ export default function SummaryScreen() {
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedTranscript, setSelectedTranscript] = useState<Transcript | null>(null);
+  const [selectedTranscript, setSelectedTranscript] =
+    useState<Transcript | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
-  const [clearAllConfirmVisible, setClearAllConfirmVisible] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
-  const scaleAnim = useRef(new Animated.Value(0.95)).current;
-  const colorScheme = useColorScheme();
-  const isDarkMode = colorScheme === 'dark';
 
   const fetchTranscripts = useCallback(async () => {
     try {
@@ -87,20 +77,13 @@ export default function SummaryScreen() {
   // Add animation effect when transcripts are loaded
   useEffect(() => {
     if (transcripts.length > 0) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }),
-        Animated.spring(scaleAnim, {
-          toValue: 1,
-          friction: 8,
-          useNativeDriver: true,
-        })
-      ]).start();
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }).start();
     }
-  }, [transcripts, fadeAnim, scaleAnim]);
+  }, [transcripts, fadeAnim]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
@@ -120,37 +103,12 @@ export default function SummaryScreen() {
     }
   };
 
-  const formatRelativeDate = (dateString: string) => {
-    try {
-      const date = new Date(dateString);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-      
-      if (diffDays === 0) {
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-        if (diffHours === 0) {
-          const diffMinutes = Math.floor(diffMs / (1000 * 60));
-          return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''} ago`;
-        }
-        return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
-      } else if (diffDays < 7) {
-        return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
-      } else {
-        return formatDate(dateString);
-      }
-    } catch (error) {
-      return "Unknown date";
-    }
-  };
-
   const openTranscriptDetail = (transcript: Transcript) => {
     setSelectedTranscript(transcript);
     setModalVisible(true);
   };
 
   const closeModal = () => {
-    stopSpeaking();
     setModalVisible(false);
     setSelectedTranscript(null);
   };
@@ -191,32 +149,29 @@ export default function SummaryScreen() {
     setDeleteConfirmVisible(true);
   };
 
-  const showClearAllConfirm = () => {
-    if (transcripts.length === 0) {
-      Alert.alert("Info", "No summaries to clear");
-      return;
-    }
-    setClearAllConfirmVisible(true);
-  };
+  const handleRefreshSummary = async () => {
+    if (!selectedTranscript) return;
 
-  const handleClearAll = async () => {
     try {
-      const deletePromises = transcripts.map((transcript) => 
-        fetch(`${API_URL}/transcripts/${transcript._id}`, {
-          method: "DELETE",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ username }),
-        })
-      );
-      
-      await Promise.all(deletePromises);
-      setTranscripts([]);
-      setClearAllConfirmVisible(false);
+      const response = await fetch(`${API_URL}/transcripts/${username}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        const updatedTranscript = data.find(
+          (t: Transcript) => t._id === selectedTranscript._id
+        );
+        if (updatedTranscript) {
+          setSelectedTranscript(updatedTranscript);
+          setTranscripts((prev) =>
+            prev.map((t) =>
+              t._id === updatedTranscript._id ? updatedTranscript : t
+            )
+          );
+        }
+      }
     } catch (error) {
-      console.error("Error deleting all transcripts:", error);
-      Alert.alert("Error", "Failed to delete all transcripts");
+      console.error("Error refreshing summary:", error);
+      Alert.alert("Error", "Failed to refresh summary");
     }
   };
 
@@ -243,42 +198,13 @@ export default function SummaryScreen() {
       // Add date
       shareContent += `Date: ${formatDate(selectedTranscript.timestamp)}`;
 
-      // Share the content
       await Share.share({
         message: shareContent,
-        title: selectedTranscript.oneLiner || "Conversation Summary",
+        title: "Never Forget - Memory Summary",
       });
     } catch (error) {
-      console.error("Error sharing transcript:", error);
-      Alert.alert("Error", "Failed to share transcript");
-    }
-  };
-
-  const stopSpeaking = () => {
-    Speech.stop();
-    setIsSpeaking(false);
-  };
-
-  const speakSummary = async (text: string) => {
-    if (isSpeaking) {
-      stopSpeaking();
-      return;
-    }
-
-    try {
-      setIsSpeaking(true);
-      const options = {
-        voice: "", // use default voice
-        rate: 0.9, // slightly slower
-        pitch: 1.0,
-        onDone: () => setIsSpeaking(false),
-        onError: () => setIsSpeaking(false),
-      };
-      await Speech.speak(text, options);
-    } catch (error) {
-      console.error("Error speaking text:", error);
-      setIsSpeaking(false);
-      Alert.alert("Error", "Failed to speak text");
+      console.error("Error sharing:", error);
+      Alert.alert("Error", "Failed to share summary");
     }
   };
 
@@ -289,126 +215,90 @@ export default function SummaryScreen() {
     item: Transcript;
     index: number;
   }) => {
-    // Different colors for alternating items
-    const isEvenIndex = index % 2 === 0;
-    const itemBgColor = isDarkMode 
-      ? (isEvenIndex ? theme.colors.secondary[800] : theme.colors.secondary[800]) 
-      : (isEvenIndex ? theme.colors.white : theme.colors.white);
-    
-    const borderColor = isDarkMode 
-      ? theme.colors.secondary[700] 
-      : theme.colors.secondary[200];
+    const formattedDateTime = (() => {
+      try {
+        const date = new Date(item.createdAt || item.timestamp);
+        if (isNaN(date.getTime())) {
+          return { date: "Invalid date", time: "" };
+        }
+        return {
+          date: format(date, "MMMM d, yyyy"),
+          time: format(date, "h:mm a"),
+        };
+      } catch (error) {
+        console.error("Error formatting date:", error);
+        return { date: "Invalid date", time: "" };
+      }
+    })();
 
-    // Handle pending summaries or errors
-    const isPending = !item.isSummarized;
-    const hasError = item.summaryError && item.summaryError.length > 0;
-    
     return (
-      <Animated.View 
-        style={[
-          { 
-            opacity: fadeAnim,
-            transform: [{ scale: scaleAnim }],
-          }
-        ]}
-      >
-        <Card
-          style={styles.transcriptCard}
-          backgroundColor={itemBgColor}
-          borderColor={borderColor}
-          elevation="sm"
-          onPress={() => openTranscriptDetail(item)}
+      <View style={styles.transcriptCard}>
+        <TouchableOpacity
+          style={styles.cardContent}
+          onPress={() => {
+            setSelectedTranscript(item);
+            setModalVisible(true);
+          }}
         >
           <View style={styles.cardHeader}>
-            {isPending ? (
-              <View style={styles.statusChip}>
-                <Ionicons 
-                  name="time-outline" 
-                  size={14} 
-                  color={theme.colors.warning[600]} 
-                />
-                <Text 
-                  variant="caption" 
-                  weight="medium" 
-                  style={{ marginLeft: 4 }}
-                  color={theme.colors.warning[600]}
-                >
-                  Processing
-                </Text>
+            <View style={styles.dateContainer}>
+              <Ionicons name="calendar-outline" size={16} color="#007AFF" />
+              <Text style={styles.dateText}>{formattedDateTime.date}</Text>
+              <View style={styles.timeContainer}>
+                <Ionicons name="time-outline" size={14} color="#666" />
+                <Text style={styles.timeText}>{formattedDateTime.time}</Text>
               </View>
-            ) : hasError ? (
-              <View style={styles.statusChip}>
-                <Ionicons 
-                  name="alert-circle-outline" 
-                  size={14} 
-                  color={theme.colors.error[600]} 
-                />
-                <Text 
-                  variant="caption" 
-                  weight="medium" 
-                  style={{ marginLeft: 4 }}
-                  color={theme.colors.error[600]}
-                >
-                  Error
-                </Text>
-              </View>
-            ) : (
-              <Text
-                variant="caption"
-                style={styles.dateText}
-                color={isDarkMode ? theme.colors.neutral[400] : theme.colors.secondary[500]}
-              >
-                {formatRelativeDate(item.timestamp)}
+            </View>
+            <View style={styles.statusContainer}>
+              <View
+                style={[
+                  styles.statusDot,
+                  { backgroundColor: item.summary ? "#4CAF50" : "#FFC107" },
+                ]}
+              />
+              <Text style={styles.statusText}>
+                {item.summary ? "Completed" : "Processing"}
               </Text>
-            )}
+            </View>
           </View>
-          
-          <Text variant="h4" weight="semibold" style={styles.cardTitle}>
-            {item.oneLiner || (isPending 
-              ? "Processing transcript..." 
-              : hasError 
-                ? "Failed to generate summary" 
-                : "No summary available"
-            )}
+
+          <Text style={styles.oneLiner} numberOfLines={2}>
+            {item.oneLiner ||
+              item.summary?.substring(0, 100) ||
+              "Processing your memory..."}
           </Text>
-          
-          <Text 
-            variant="body-sm" 
-            numberOfLines={2} 
-            style={styles.previewText}
-            color={isDarkMode ? theme.colors.neutral[300] : theme.colors.secondary[600]}
-          >
-            {isPending
-              ? "Your transcript is being processed. This might take a minute..."
-              : hasError
-              ? `Error: ${item.summaryError}`
-              : item.summary || "No detailed summary available"}
-          </Text>
-          
+
           <View style={styles.cardFooter}>
-            <Ionicons 
-              name="chatbubble-outline" 
-              size={14} 
-              color={isDarkMode ? theme.colors.neutral[400] : theme.colors.secondary[500]} 
-            />
-            <Text
-              variant="caption"
-              style={{ marginLeft: 4 }}
-              color={isDarkMode ? theme.colors.neutral[400] : theme.colors.secondary[500]}
-            >
-              {(item.transcript || "").length > 100 
-                ? item.transcript.slice(0, 100).trim() + "..." 
-                : item.transcript || "No transcript content"
-              }
-            </Text>
+            <View style={styles.actionContainer}>
+              <TouchableOpacity style={styles.actionButton}>
+                <Ionicons name="chevron-forward" size={20} color="#007AFF" />
+              </TouchableOpacity>
+            </View>
           </View>
-        </Card>
-      </Animated.View>
+        </TouchableOpacity>
+      </View>
     );
   };
 
   const renderDetailModal = () => {
     if (!selectedTranscript) return null;
+
+    const speakSummary = async (text: string) => {
+      try {
+        const isSpeaking = await Speech.isSpeakingAsync();
+        if (isSpeaking) {
+          await Speech.stop();
+        } else {
+          await Speech.speak(text, {
+            language: "en",
+            rate: 0.9,
+            pitch: 1.0,
+          });
+        }
+      } catch (error) {
+        console.error("Error with text-to-speech:", error);
+      }
+    };
 
     return (
       <Modal
@@ -417,170 +307,62 @@ export default function SummaryScreen() {
         visible={modalVisible}
         onRequestClose={closeModal}
       >
-        <View style={styles.modalOverlay}>
-          <BlurView
-            style={StyleSheet.absoluteFill}
-            intensity={80}
-            tint={isDarkMode ? "dark" : "light"}
-          />
-          <View 
-            style={[
-              styles.modalContent,
-              {
-                backgroundColor: isDarkMode 
-                  ? theme.colors.secondary[800] 
-                  : theme.colors.white
-              }
-            ]}
-          >
+        <BlurView intensity={90} style={styles.modalContainer}>
+          <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text 
-                variant="caption" 
-                weight="medium"
-                color={isDarkMode ? theme.colors.neutral[400] : theme.colors.secondary[500]}
-              >
-                {formatDate(selectedTranscript.timestamp)}
-              </Text>
-              <View style={styles.modalHeaderButtons}>
-                <TouchableOpacity 
-                  onPress={handleShare} 
-                  style={styles.headerActionButton}
+              <TouchableOpacity style={styles.closeButton} onPress={closeModal}>
+                <Ionicons name="close" size={24} color="#666" />
+              </TouchableOpacity>
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={handleRefreshSummary}
                 >
-                  <Ionicons
-                    name="share-outline"
-                    size={24}
-                    color={isDarkMode ? theme.colors.neutral[300] : theme.colors.secondary[600]}
-                  />
+                  <Ionicons name="refresh-outline" size={24} color="#007AFF" />
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={showDeleteConfirm} 
-                  style={styles.headerActionButton}
+                <TouchableOpacity
+                  style={styles.actionButton}
+                  onPress={handleShare}
                 >
-                  <Ionicons
-                    name="trash-outline"
-                    size={24}
-                    color={theme.colors.error[500]}
-                  />
+                  <Ionicons name="share-outline" size={24} color="#007AFF" />
                 </TouchableOpacity>
-                <TouchableOpacity 
-                  onPress={closeModal} 
-                  style={styles.headerActionButton}
+                <TouchableOpacity
+                  style={[styles.actionButton, styles.deleteButton]}
+                  onPress={showDeleteConfirm}
                 >
-                  <Ionicons
-                    name="close"
-                    size={24}
-                    color={isDarkMode ? theme.colors.neutral[300] : theme.colors.secondary[600]}
-                  />
+                  <Ionicons name="trash-outline" size={24} color="#FF3B30" />
                 </TouchableOpacity>
               </View>
             </View>
-            
-            <ScrollView 
-              style={styles.modalBody} 
-              showsVerticalScrollIndicator={false}
-            >
-              {/* One-liner section */}
-              <View style={styles.summarySection}>
-                <View style={styles.sectionHeader}>
-                  <Text 
-                    variant="label" 
-                    weight="medium"
-                    color={isDarkMode ? theme.colors.primary[400] : theme.colors.primary[600]}
-                  >
-                    ONE-LINE SUMMARY
-                  </Text>
-                  <TouchableOpacity 
-                    onPress={() => speakSummary(selectedTranscript.oneLiner || "")}
-                    disabled={!selectedTranscript.oneLiner}
-                  >
-                    <Ionicons
-                      name={isSpeaking ? "volume-high" : "volume-medium-outline"}
-                      size={20}
-                      color={
-                        selectedTranscript.oneLiner
-                          ? (isDarkMode ? theme.colors.primary[400] : theme.colors.primary[600])
-                          : (isDarkMode ? theme.colors.neutral[700] : theme.colors.secondary[300])
-                      }
-                    />
-                  </TouchableOpacity>
-                </View>
-                <Text 
-                  variant="h3" 
-                  weight="semibold" 
-                  style={styles.oneLinerText}
-                >
-                  {selectedTranscript.oneLiner || "No one-liner summary available"}
-                </Text>
-              </View>
-              
-              {/* Detailed summary section */}
-              <View style={styles.summarySection}>
-                <View style={styles.sectionHeader}>
-                  <Text 
-                    variant="label" 
-                    weight="medium"
-                    color={isDarkMode ? theme.colors.primary[400] : theme.colors.primary[600]}
-                  >
-                    DETAILED SUMMARY
-                  </Text>
-                  <TouchableOpacity 
-                    onPress={() => speakSummary(selectedTranscript.summary || "")}
-                    disabled={!selectedTranscript.summary}
-                  >
-                    <Ionicons
-                      name={isSpeaking ? "volume-high" : "volume-medium-outline"}
-                      size={20}
-                      color={
-                        selectedTranscript.summary
-                          ? (isDarkMode ? theme.colors.primary[400] : theme.colors.primary[600])
-                          : (isDarkMode ? theme.colors.neutral[700] : theme.colors.secondary[300])
-                      }
-                    />
-                  </TouchableOpacity>
-                </View>
-                <Text variant="body" style={styles.summaryText}>
-                  {selectedTranscript.summary || "No detailed summary available"}
-                </Text>
-              </View>
-              
-              {/* Full transcript section */}
-              <View style={styles.summarySection}>
-                <View style={styles.sectionHeader}>
-                  <Text 
-                    variant="label" 
-                    weight="medium"
-                    color={isDarkMode ? theme.colors.neutral[400] : theme.colors.secondary[600]}
-                  >
-                    FULL TRANSCRIPT
+
+            <ScrollView style={styles.modalBody}>
+              {selectedTranscript?.oneLiner && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Key Takeaway</Text>
+                  <Text style={styles.oneLinerText}>
+                    {selectedTranscript.oneLiner}
                   </Text>
                 </View>
-                <Text 
-                  variant="body-sm" 
-                  style={styles.transcriptText}
-                  color={isDarkMode ? theme.colors.neutral[300] : theme.colors.secondary[600]}
-                >
-                  {selectedTranscript.transcript || "No transcript available"}
+              )}
+
+              {selectedTranscript?.summary && (
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>Summary</Text>
+                  <Text style={styles.summaryText}>
+                    {selectedTranscript.summary}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Full Transcript</Text>
+                <Text style={styles.transcriptText}>
+                  {selectedTranscript?.transcript || "Processing..."}
                 </Text>
               </View>
             </ScrollView>
-            
-            <View style={styles.modalFooter}>
-              <Button
-                title="Close"
-                variant="outline"
-                onPress={closeModal}
-                style={{ flex: 1, marginRight: theme.spacing.sm }}
-              />
-              <Button
-                title="Share"
-                variant="primary"
-                leftIcon="share-outline"
-                onPress={handleShare}
-                style={{ flex: 1 }}
-              />
-            </View>
           </View>
-        </View>
+        </BlurView>
       </Modal>
     );
   };
@@ -592,192 +374,74 @@ export default function SummaryScreen() {
       visible={deleteConfirmVisible}
       onRequestClose={() => setDeleteConfirmVisible(false)}
     >
-      <View style={styles.modalOverlay}>
-        <BlurView
-          style={StyleSheet.absoluteFill}
-          intensity={80}
-          tint={isDarkMode ? "dark" : "light"}
-        />
-        <View 
-          style={[
-            styles.confirmDialog,
-            {
-              backgroundColor: isDarkMode 
-                ? theme.colors.secondary[800] 
-                : theme.colors.white
-            }
-          ]}
-        >
-          <Ionicons 
-            name="alert-circle" 
-            size={40} 
-            color={theme.colors.error[500]} 
-            style={styles.confirmIcon} 
-          />
-          <Text variant="h4" weight="bold" style={styles.confirmTitle}>
-            Delete Summary
-          </Text>
-          <Text 
-            variant="body" 
-            align="center" 
-            style={styles.confirmMessage}
-          >
-            Are you sure you want to delete this summary? This action cannot be undone.
+      <BlurView intensity={90} style={styles.confirmModalContainer}>
+        <View style={styles.confirmModal}>
+          <View style={styles.confirmHeader}>
+            <Ionicons name="warning" size={32} color="#FF3B30" />
+            <Text style={styles.confirmTitle}>Delete Memory</Text>
+          </View>
+          <Text style={styles.confirmText}>
+            Are you sure you want to delete this memory? This action cannot be
+            undone.
           </Text>
           <View style={styles.confirmButtons}>
-            <Button
-              title="Cancel"
-              variant="outline"
+            <TouchableOpacity
+              style={[styles.confirmButton, styles.cancelButton]}
               onPress={() => setDeleteConfirmVisible(false)}
-              style={{ flex: 1, marginRight: theme.spacing.sm }}
-            />
-            <Button
-              title="Delete"
-              variant="danger"
-              leftIcon="trash-outline"
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.confirmButton, styles.deleteConfirmButton]}
               onPress={handleDelete}
-              style={{ flex: 1 }}
-            />
+            >
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </BlurView>
     </Modal>
   );
 
-  const renderClearAllConfirmModal = () => (
-    <Modal
-      animationType="fade"
-      transparent={true}
-      visible={clearAllConfirmVisible}
-      onRequestClose={() => setClearAllConfirmVisible(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <BlurView
-          style={StyleSheet.absoluteFill}
-          intensity={80}
-          tint={isDarkMode ? "dark" : "light"}
-        />
-        <View 
-          style={[
-            styles.confirmDialog,
-            {
-              backgroundColor: isDarkMode 
-                ? theme.colors.secondary[800] 
-                : theme.colors.white
-            }
-          ]}
-        >
-          <Ionicons 
-            name="warning" 
-            size={40} 
-            color={theme.colors.warning[500]} 
-            style={styles.confirmIcon} 
-          />
-          <Text variant="h4" weight="bold" style={styles.confirmTitle}>
-            Clear All Summaries
-          </Text>
-          <Text 
-            variant="body" 
-            align="center" 
-            style={styles.confirmMessage}
-          >
-            Are you sure you want to delete all your summaries? This action cannot be undone.
-          </Text>
-          <View style={styles.confirmButtons}>
-            <Button
-              title="Cancel"
-              variant="outline"
-              onPress={() => setClearAllConfirmVisible(false)}
-              style={{ flex: 1, marginRight: theme.spacing.sm }}
-            />
-            <Button
-              title="Clear All"
-              variant="danger"
-              leftIcon="trash-outline"
-              onPress={handleClearAll}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </View>
+  if (loading && !refreshing) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Loading transcripts...</Text>
       </View>
-    </Modal>
-  );
+    );
+  }
 
   return (
-    <View style={[
-      styles.container,
-      {backgroundColor: isDarkMode ? theme.colors.secondary[900] : theme.colors.white}
-    ]}>
-      <Header 
-        title="Memory Summaries"
-        rightAction={{
-          icon: "trash-outline",
-          onPress: showClearAllConfirm,
-          accessibilityLabel: "Clear all summaries",
-        }}
-      />
-      
-      <FlatList
-        data={transcripts}
-        renderItem={renderTranscriptItem}
-        keyExtractor={(item) => item._id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[theme.colors.primary[500]]}
-            tintColor={isDarkMode ? theme.colors.primary[400] : theme.colors.primary[500]}
-          />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            {loading ? (
-              <>
-                <Ionicons 
-                  name="hourglass-outline" 
-                  size={50} 
-                  color={isDarkMode ? theme.colors.neutral[400] : theme.colors.secondary[400]} 
-                />
-                <Text 
-                  variant="h4" 
-                  weight="semibold" 
-                  style={styles.emptyStateTitle}
-                >
-                  Loading summaries...
-                </Text>
-              </>
-            ) : (
-              <>
-                <Ionicons 
-                  name="document-text-outline" 
-                  size={50} 
-                  color={isDarkMode ? theme.colors.neutral[400] : theme.colors.secondary[400]} 
-                />
-                <Text 
-                  variant="h4" 
-                  weight="semibold" 
-                  style={styles.emptyStateTitle}
-                >
-                  No summaries yet
-                </Text>
-                <Text 
-                  variant="body" 
-                  align="center" 
-                  color={isDarkMode ? theme.colors.neutral[400] : theme.colors.secondary[500]}
-                  style={styles.emptyStateText}
-                >
-                  Record your first conversation from the home screen to get started.
-                </Text>
-              </>
-            )}
-          </View>
-        }
-      />
-      
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Your Memories</Text>
+        <TouchableOpacity style={styles.reloadButton} onPress={onRefresh}>
+          <Ionicons name="reload-outline" size={24} color="#007AFF" />
+        </TouchableOpacity>
+      </View>
+
+      {transcripts.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="documents-outline" size={64} color="#CCC" />
+          <Text style={styles.emptyText}>No memories yet</Text>
+          <Text style={styles.emptySubtext}>
+            Your recorded memories will appear here
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={transcripts}
+          renderItem={renderTranscriptItem}
+          keyExtractor={(item) => item._id}
+          contentContainerStyle={styles.listContainer}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        />
+      )}
+
       {renderDetailModal()}
       {renderDeleteConfirmModal()}
-      {renderClearAllConfirmModal()}
     </View>
   );
 }
@@ -785,131 +449,256 @@ export default function SummaryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#F5F5F7",
   },
-  listContent: {
-    padding: theme.spacing.md,
-    paddingBottom: theme.spacing.xxxl,
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+    backgroundColor: "#FFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E5E5",
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#1A1A1A",
+  },
+  reloadButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F0F8FF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  listContainer: {
+    padding: 16,
   },
   transcriptCard: {
-    marginBottom: theme.spacing.md,
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  cardContent: {
+    padding: 16,
   },
   cardHeader: {
     flexDirection: "row",
-    justifyContent: "flex-end",
-    marginBottom: theme.spacing.xs,
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
   },
-  cardTitle: {
-    marginBottom: theme.spacing.xs,
+  dateContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
   },
   dateText: {
-    textAlign: "right",
+    fontSize: 14,
+    color: "#1A1A1A",
+    marginLeft: 6,
+    fontWeight: "500",
   },
-  previewText: {
-    marginBottom: theme.spacing.md,
+  timeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginLeft: 12,
+  },
+  timeText: {
+    fontSize: 13,
+    color: "#666",
+    marginLeft: 4,
+  },
+  statusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  statusText: {
+    fontSize: 12,
+    color: "#666",
+  },
+  oneLiner: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1A1A1A",
+    marginBottom: 8,
+    lineHeight: 22,
   },
   cardFooter: {
     flexDirection: "row",
+    justifyContent: "flex-end",
     alignItems: "center",
+    marginTop: 12,
   },
-  statusChip: {
+  actionContainer: {
     flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: theme.spacing.sm,
-    paddingVertical: theme.spacing.xxs,
-    borderRadius: theme.spacing.sm,
-    backgroundColor: "rgba(255, 159, 10, 0.1)",
   },
-  modalOverlay: {
+  actionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F0F8FF",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  deleteButton: {
+    backgroundColor: "#FFF1F0",
+  },
+  emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: theme.spacing.md,
+    padding: 32,
+  },
+  emptyText: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#1A1A1A",
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: "#666",
+    textAlign: "center",
+    marginTop: 8,
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContent: {
-    width: "100%",
-    maxHeight: "90%",
-    borderRadius: theme.borderRadius.lg,
-    ...theme.shadows.lg,
+    flex: 1,
+    backgroundColor: "#FFF",
+    marginTop: 60,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: theme.spacing.md,
+    padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.1)",
+    borderBottomColor: "#E5E5E5",
   },
-  modalHeaderButtons: {
-    flexDirection: "row",
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F5F5F7",
+    justifyContent: "center",
     alignItems: "center",
   },
-  headerActionButton: {
-    padding: theme.spacing.xs,
-    marginLeft: theme.spacing.sm,
+  modalActions: {
+    flexDirection: "row",
   },
   modalBody: {
-    padding: theme.spacing.md,
-    maxHeight: "80%",
+    flex: 1,
+    padding: 16,
   },
-  summarySection: {
-    marginBottom: theme.spacing.lg,
+  section: {
+    marginBottom: 24,
   },
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: theme.spacing.xs,
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1A1A1A",
+    marginBottom: 12,
   },
   oneLinerText: {
-    marginBottom: theme.spacing.md,
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#1A1A1A",
+    lineHeight: 28,
   },
   summaryText: {
+    fontSize: 16,
+    color: "#333",
     lineHeight: 24,
   },
   transcriptText: {
+    fontSize: 14,
+    color: "#666",
     lineHeight: 22,
   },
-  modalFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    padding: theme.spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(0, 0, 0, 0.1)",
-  },
-  confirmDialog: {
-    width: "90%",
-    padding: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
-    alignItems: "center",
-    justifyContent: "center",
-    ...theme.shadows.lg,
-  },
-  confirmIcon: {
-    marginBottom: theme.spacing.md,
-  },
-  confirmTitle: {
-    marginBottom: theme.spacing.sm,
-  },
-  confirmMessage: {
-    marginBottom: theme.spacing.lg,
-  },
-  confirmButtons: {
-    flexDirection: "row",
-    width: "100%",
-  },
-  emptyState: {
+  confirmModalContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: theme.spacing.xxl,
-    marginTop: theme.spacing.xxl,
+    backgroundColor: "rgba(0,0,0,0.5)",
   },
-  emptyStateTitle: {
-    marginTop: theme.spacing.md,
-    marginBottom: theme.spacing.sm,
+  confirmModal: {
+    backgroundColor: "#FFF",
+    borderRadius: 16,
+    padding: 24,
+    width: "85%",
+    maxWidth: 400,
   },
-  emptyStateText: {
+  confirmHeader: {
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  confirmTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#1A1A1A",
+    marginTop: 12,
+  },
+  confirmText: {
+    fontSize: 16,
+    color: "#666",
     textAlign: "center",
-    maxWidth: 300,
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  confirmButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  confirmButton: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    marginHorizontal: 8,
+  },
+  cancelButton: {
+    backgroundColor: "#F5F5F7",
+  },
+  deleteConfirmButton: {
+    backgroundColor: "#FF3B30",
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#1A1A1A",
+  },
+  deleteButtonText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFF",
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#666666",
+    textAlign: "center",
+    marginTop: 20,
   },
 });

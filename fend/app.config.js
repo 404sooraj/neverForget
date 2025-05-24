@@ -1,13 +1,5 @@
 import "dotenv/config";
 
-// Log the environment variable for debugging
-console.log("API URL from env:", process.env.EXPO_PUBLIC_API_URL);
-
-// Check if the API URL is defined
-if (!process.env.EXPO_PUBLIC_API_URL) {
-  console.warn("⚠️ EXPO_PUBLIC_API_URL is not defined in .env file. Using default fallback URL.");
-}
-
 export default {
   expo: {
     name: "NeverForget",

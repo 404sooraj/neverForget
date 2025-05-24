@@ -9,7 +9,6 @@ import {
   getTranscriptionStatus,
   getCurrentTask,
   getQueueStatus,
-  checkVoskStatus,
 } from "../controllers/transcribe.controllers";
 // import { authMiddleware } from "../middleware/auth.middleware";
 
@@ -43,8 +42,5 @@ router.get("/current-task/:username", getCurrentTask);
 
 // Get overall queue status
 router.get("/queue-status", getQueueStatus);
-
-// Get Vosk status
-router.get("/vosk-status", checkVoskStatus);
 
 export default router;
