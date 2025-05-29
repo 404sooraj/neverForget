@@ -11,18 +11,7 @@ export default function Navbar() {
           </Link>
         </div>
         <nav className="hidden md:flex gap-6">
-          <Link href="#features" className="text-sm font-medium transition-colors hover:text-primary">
-            Features
-          </Link>
-          <Link href="#about" className="text-sm font-medium transition-colors hover:text-primary">
-            About
-          </Link>
-          <Link href="#tech" className="text-sm font-medium transition-colors hover:text-primary">
-            Technology
-          </Link>
-          <Link href="#docs" className="text-sm font-medium transition-colors hover:text-primary">
-            Documentation
-          </Link>
+         
         </nav>
         <div className="flex items-center gap-2">
           {/* <Button variant="outline" size="sm" className="hidden md:flex">
