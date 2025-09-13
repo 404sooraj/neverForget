@@ -22,7 +22,7 @@ export default function AuthScreen() {
       setError("Username is required");
       return;
     }
-
+    
     try {
       setError("");
       if (isSignIn) {

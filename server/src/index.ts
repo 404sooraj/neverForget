@@ -6,6 +6,8 @@ import transcriptionRoutes from "./routes/transcribe.routes";
 import userRoutes from "./routes/user.routes";
 import chatbotRoutes from "./routes/chatbot.routes"; // Import chatbot routes
 import { startScheduler } from "./config/scheduler";
+import morgan from "morgan";
+import { errorLoggerMiddleware, errorHandlerMiddleware } from "./middleware/error-logger.middleware";
 
 dotenv.config();
 
@@ -21,6 +23,11 @@ connectDB();
 // Start the scheduler
 startScheduler();
 
+// Add error logging middleware before other middleware
+app.use(errorLoggerMiddleware);
+
+app.use(morgan("dev"));
+
 app.get("/", (_req, res) => {
   res.send("Hello, TypeScript + Express!");
 });
@@ -29,6 +36,9 @@ app.get("/", (_req, res) => {
 app.use("/", transcriptionRoutes);
 app.use("/", userRoutes);
 app.use("/", chatbotRoutes); // Mount chatbot routes
+
+// Add error handler middleware at the end
+app.use(errorHandlerMiddleware);
 
 app.listen(PORT, () => {
   console.log(`Server listening on http://localhost:${PORT}`);

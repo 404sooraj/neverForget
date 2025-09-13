@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as FileSystem from "expo-file-system";
+import { Platform } from "react-native";
 
 import { API_URL } from "../services/config";
 interface QueueItem {
@@ -154,10 +155,18 @@ class UploadQueue {
     }
     
     try {
+      if (Platform.OS === 'web') {
+        // For web, we can't delete files from the browser's file system
+        // The file will be garbage collected when the blob URL is revoked
+        console.log(`Web platform: Cannot delete file ${uri} (blob URL will be garbage collected)`);
+        return;
+      }
+      
       const fileInfo = await FileSystem.getInfoAsync(uri);
       
       if (fileInfo.exists) {
         await FileSystem.deleteAsync(uri, { idempotent: true });
+        console.log(`Successfully deleted file: ${uri}`);
       } else {
         console.log(`File does not exist: ${uri}`);
       }
@@ -183,15 +192,75 @@ class UploadQueue {
         }
 
         const formData = new FormData();
-        formData.append("audio", {
-          uri: item.uri,
-          name: `audio_${Date.now()}.m4a`,
-          type: "audio/m4a",
-        } as any);
+        
+        if (Platform.OS === 'web') {
+          // For web, we need to fetch the file as a Blob and create a File object
+          console.log(`Web platform detected, handling file upload for: ${item.uri}`);
+          console.log(`URI type:`, typeof item.uri);
+          console.log(`URI starts with blob:`, item.uri.startsWith('blob:'));
+          console.log(`URI starts with data:`, item.uri.startsWith('data:'));
+          
+          try {
+            // Check if it's already a File object (from file input)
+            if (item.uri instanceof File) {
+              console.log(`URI is already a File object:`, {
+                name: item.uri.name,
+                type: item.uri.type,
+                size: item.uri.size
+              });
+              formData.append("audio", item.uri);
+            } else {
+              // Fetch the file as a blob
+              console.log(`Fetching blob from URI: ${item.uri}`);
+              const response = await fetch(item.uri);
+              console.log(`Fetch response status:`, response.status);
+              console.log(`Fetch response headers:`, Object.fromEntries(response.headers.entries()));
+              
+              const blob = await response.blob();
+              console.log(`Blob created:`, {
+                type: blob.type,
+                size: blob.size
+              });
+              
+              // Create a File object from the blob
+              const file = new File([blob], `audio_${Date.now()}.webm`, {
+                type: blob.type || "audio/webm"
+              });
+              
+              formData.append("audio", file);
+              console.log(`Web file created:`, {
+                name: file.name,
+                type: file.type,
+                size: file.size
+              });
+            }
+          } catch (webError) {
+            console.error(`Failed to process file for web upload:`, webError);
+            console.error(`Error details:`, {
+              message: webError.message,
+              stack: webError.stack,
+              uri: item.uri
+            });
+            throw new Error(`Failed to process file for web: ${webError.message}`);
+          }
+        } else {
+          // For React Native (iOS/Android), use the existing format
+          formData.append("audio", {
+            uri: item.uri,
+            name: `audio_${Date.now()}.m4a`,
+            type: "audio/m4a",
+          } as any);
+          console.log(`React Native file format:`, {
+            uri: item.uri,
+            name: `audio_${Date.now()}.m4a`,
+            type: "audio/m4a"
+          });
+        }
+        
         formData.append("username", item.username);
 
         console.log(
-          `Uploading file attempt ${attempt + 1}/${maxRetries + 1}...`
+          `Uploading file attempt ${attempt + 1}/${maxRetries + 1}... (Platform: ${Platform.OS})`
         );
         const response = await fetch(`${API_URL}/transcribe`, {
           method: "POST",

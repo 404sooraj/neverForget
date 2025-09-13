@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { API_URL } from "../../services/config";
+import axiosInstance from "../../services/api";
 type AuthContextType = {
   username: string | null;
   isLoading: boolean;
@@ -37,54 +37,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = async (username: string) => {
     try {
-      const response = await fetch(`${API_URL}/users/${username}`);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        let errorMessage;
-        try {
-          const errorData = JSON.parse(errorText);
-          errorMessage = errorData.message || "Failed to sign in";
-        } catch (e) {
-          errorMessage = "Failed to sign in";
-        }
-        throw new Error(errorMessage);
-      }
-
-      const data = await response.json();
+      const response = await axiosInstance.get(`/user/${username}`);
+      console.log(response)
       await AsyncStorage.setItem("username", username);
       setUsername(username);
-    } catch (error) {
-      throw error;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || "Failed to sign in";
+      throw new Error(errorMessage);
     }
   };
 
   const signUp = async (username: string) => {
     try {
-      const response = await fetch(`${API_URL}/users`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username }),
-      });
-
-      const responseText = await response.text();
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        throw new Error("Invalid server response");
-      }
-
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to sign up");
-      }
-
+      const response = await axiosInstance.post("/user", { username });
+      console.log(response)
       await AsyncStorage.setItem("username", username);
       setUsername(username);
-    } catch (error) {
-      throw error;
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || "Failed to sign up";
+      throw new Error(errorMessage);
     }
   };
 

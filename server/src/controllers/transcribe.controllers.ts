@@ -41,6 +41,35 @@ export const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
+  fileFilter: (req, file, cb) => {
+    console.log(`\n=== MULTER FILE FILTER ===`);
+    console.log(`File fieldname: ${file.fieldname}`);
+    console.log(`File originalname: ${file.originalname}`);
+    console.log(`File mimetype: ${file.mimetype}`);
+    console.log(`File size: ${file.size}`);
+    console.log(`Request body:`, req.body);
+    console.log(`User agent:`, req.headers['user-agent']);
+    console.log(`=== END MULTER FILE FILTER ===\n`);
+    
+    // Accept audio files (including web formats)
+    const allowedMimeTypes = [
+      'audio/m4a',
+      'audio/mp4',
+      'audio/webm',
+      'audio/wav',
+      'audio/ogg',
+      'audio/mpeg',
+      'audio/aac'
+    ];
+    
+    if (allowedMimeTypes.includes(file.mimetype)) {
+      console.log(`✅ File type accepted: ${file.mimetype}`);
+      cb(null, true);
+    } else {
+      console.log(`❌ File type rejected: ${file.mimetype}`);
+      cb(new Error(`Unsupported file type: ${file.mimetype}. Allowed types: ${allowedMimeTypes.join(', ')}`));
+    }
+  }
 });
 
 // Helper function to validate transcription text
@@ -64,39 +93,106 @@ export const transcribeAudio = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  const requestId = (req as any).requestId || 'unknown';
+  
   try {
+    console.log(`\n=== TRANSCRIBE AUDIO START [${requestId}] ===`);
+    console.log(`Request body keys:`, Object.keys(req.body));
+    console.log(`Request body values:`, req.body);
+    console.log(`File present:`, !!req.file);
+    
     if (!req.file) {
-      res.status(400).json({ error: "No file uploaded" });
+      console.log(`❌ VALIDATION FAILED [${requestId}]: No file uploaded`);
+      console.log(`Request details:`, {
+        hasFile: !!req.file,
+        body: req.body,
+        headers: req.headers
+      });
+      res.status(400).json({ 
+        error: "No file uploaded",
+        requestId: requestId,
+        details: "The 'audio' field is required in the form data"
+      });
       return;
     }
+
+    console.log(`✅ File validation passed [${requestId}]`);
+    console.log(`File details:`, {
+      fieldname: req.file.fieldname,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: req.file.path
+    });
 
     const { username } = req.body;
+    console.log(`Username from body:`, username);
+    console.log(`Username type:`, typeof username);
+    console.log(`Username truthy:`, !!username);
+    
     if (!username) {
+      console.log(`❌ VALIDATION FAILED [${requestId}]: Username is missing`);
+      console.log(`Request body:`, req.body);
+      console.log(`Cleaning up uploaded file: ${req.file.path}`);
       // Clean up the file if username is missing
       fs.unlink(req.file.path, () => {});
-      res.status(400).json({ error: "Username is required" });
+      res.status(400).json({ 
+        error: "Username is required",
+        requestId: requestId,
+        details: "The 'username' field is required in the form data"
+      });
       return;
     }
+
+    console.log(`✅ Username validation passed [${requestId}]: ${username}`);
 
     // Find user by username
+    console.log(`🔍 Searching for user with username: ${username}`);
     const user = await User.findOne({ username });
+    console.log(`User found:`, !!user);
+    console.log(`User details:`, user ? { id: user._id, username: user.username } : 'Not found');
+    
     if (!user) {
+      console.log(`❌ VALIDATION FAILED [${requestId}]: User not found`);
+      console.log(`Searched username: ${username}`);
+      console.log(`Cleaning up uploaded file: ${req.file.path}`);
       // Clean up the file if user not found
       fs.unlink(req.file.path, () => {});
-      res.status(404).json({ error: "User not found" });
+      res.status(404).json({ 
+        error: "User not found",
+        requestId: requestId,
+        details: `No user found with username: ${username}`
+      });
       return;
     }
+
+    console.log(`✅ User validation passed [${requestId}]: User found with ID ${user._id}`);
 
     const filePath = req.file.path;
+    console.log(`📁 File path: ${filePath}`);
 
     // Verify file exists before processing
+    console.log(`🔍 Verifying file exists: ${filePath}`);
     const exists = await fileExists(filePath);
+    console.log(`File exists:`, exists);
+    
     if (!exists) {
-      res.status(400).json({ error: "File not found or inaccessible" });
+      console.log(`❌ VALIDATION FAILED [${requestId}]: File not found or inaccessible`);
+      console.log(`File path: ${filePath}`);
+      res.status(400).json({ 
+        error: "File not found or inaccessible",
+        requestId: requestId,
+        details: `File at path ${filePath} could not be accessed`
+      });
       return;
     }
 
+    console.log(`✅ File existence validation passed [${requestId}]`);
+
     // Add job to queue and get job ID
+    console.log(`🚀 Adding job to transcription queue [${requestId}]`);
+    console.log(`Queue parameters:`, { filePath, username });
+    
     const jobId = await transcriptionQueue.addJob(
       filePath,
       username,
@@ -176,18 +272,31 @@ export const transcribeAudio = async (
     );
 
     // Return immediately with job ID
+    console.log(`✅ Job queued successfully [${requestId}]: ${jobId}`);
     res.status(202).json({
       message: "Transcription job queued",
       jobId,
       status: "queued",
+      requestId: requestId
     });
   } catch (error) {
-    console.error("Failed to queue transcription:", error);
+    console.error(`❌ FAILED TO QUEUE TRANSCRIPTION [${requestId}]:`, error);
+    console.error(`Error details:`, {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      requestId: requestId
+    });
+    
     // Clean up the file in case of error
     if (req.file) {
+      console.log(`Cleaning up file due to error: ${req.file.path}`);
       fs.unlink(req.file.path, () => {});
     }
-    res.status(500).json({ error: "Failed to queue transcription" });
+    res.status(500).json({ 
+      error: "Failed to queue transcription",
+      requestId: requestId,
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
 };
 
